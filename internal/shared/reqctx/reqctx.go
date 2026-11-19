@@ -10,7 +10,19 @@ const (
 	clientIPKey
 	userAgentKey
 	principalKey
+	csrfKey
 )
+
+// WithCSRFToken stores the request's CSRF token so server-rendered forms can embed it.
+func WithCSRFToken(ctx context.Context, token string) context.Context {
+	return context.WithValue(ctx, csrfKey, token)
+}
+
+// CSRFToken returns the CSRF token for forms, or "".
+func CSRFToken(ctx context.Context) string {
+	v, _ := ctx.Value(csrfKey).(string)
+	return v
+}
 
 // Principal is the authenticated identity attached to a request.
 // It is resolved the same way for web sessions and (later) mobile bearer tokens.

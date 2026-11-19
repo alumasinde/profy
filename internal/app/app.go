@@ -21,6 +21,7 @@ import (
 	"github.com/alumasinde/profy/internal/jobsqueue"
 	"github.com/alumasinde/profy/internal/modules/auth"
 	"github.com/alumasinde/profy/internal/modules/categories"
+	"github.com/alumasinde/profy/internal/modules/discovery"
 	"github.com/alumasinde/profy/internal/modules/locations"
 	"github.com/alumasinde/profy/internal/modules/media"
 	"github.com/alumasinde/profy/internal/modules/notifications"
@@ -51,6 +52,8 @@ type App struct {
 	Handler  http.Handler
 	// Providers is exposed for tests and graceful shutdown (claim deliveries).
 	Providers *providers.Service
+	// Discovery is exposed for tests (landing evaluation).
+	Discovery *discovery.Service
 }
 
 // NewLogger returns JSON logs outside local development (§19.4).
@@ -126,6 +129,24 @@ func Build(cfg *config.Config, log *slog.Logger, db *sql.DB) (*App, error) {
 	verSvc.RegisterJobs(q)
 	provSvc.RegisterJobs(q)
 
+	// Phase 5: public marketplace, search and SEO.
+	pub.AllowIndexing = cfg.IsProduction()
+	discSvc := discovery.New(discovery.Deps{DB: db, Log: log, Settings: st, Authz: az, I18n: cat, Providers: provSvc,
+		Pages: func(ctx context.Context) ([]discovery.SitemapPage, error) {
+			list, err := pageSvc.Indexable(ctx)
+			if err != nil {
+				return nil, err
+			}
+			out := make([]discovery.SitemapPage, 0, len(list))
+			for _, p := range list {
+				out = append(out, discovery.SitemapPage{Path: p.Path, UpdatedAt: p.UpdatedAt})
+			}
+			return out, nil
+		}})
+	discSvc.RegisterJobs(q)
+	discSvc.RegisterDemandJobs(q)
+	discPublic := discovery.NewPublicHandler(discSvc, pub)
+
 	h, err := routes.New(routes.Deps{
 		DB: db, Log: log, WebFS: web.FS, I18n: cat, Settings: st, Public: pub, Auth: authSvc,
 		APIs: []routes.APIModule{
@@ -143,10 +164,12 @@ func Build(cfg *config.Config, log *slog.Logger, db *sql.DB) (*App, error) {
 			verification.NewHandler(verSvc),
 			providers.NewHandler(provSvc),
 			providers.NewAPIHandler(provSvc),
+			discovery.NewAPIHandler(discSvc),
 		},
 		Pages: []routes.PublicModule{
 			media.NewPublicHandler(mediaSvc),
 			providers.NewPublicHandler(provSvc, pub),
+			discPublic,
 			pages.NewPublicHandler(pageSvc, pub, az),
 		},
 		TrustProxy: cfg.TrustProxy, Secure: cfg.SecureCookies(),
@@ -155,7 +178,7 @@ func Build(cfg *config.Config, log *slog.Logger, db *sql.DB) (*App, error) {
 		return nil, err
 	}
 	return &App{Config: cfg, Log: log, DB: db, I18n: cat, Settings: st, Authz: az, Auth: authSvc,
-		Queue: q, Senders: senders, Handler: h, Providers: provSvc}, nil
+		Queue: q, Senders: senders, Handler: h, Providers: provSvc, Discovery: discSvc}, nil
 }
 
 func buildSenders(cfg *config.Config, log *slog.Logger) (map[string]notifications.Sender, error) {
@@ -204,7 +227,8 @@ func (a *App) Serve(ctx context.Context) error {
 	workersDone := make(chan struct{})
 	go func() {
 		defer close(workersDone)
-		go jobsqueue.ScheduleDaily(workerCtx, a.DB, a.Log, auth.JobPruneAuth, verification.JobExpire)
+		go jobsqueue.ScheduleDaily(workerCtx, a.DB, a.Log, auth.JobPruneAuth, verification.JobExpire,
+			discovery.JobEvaluateLanding, discovery.JobPurgeDemandContacts)
 		a.Queue.Run(workerCtx, a.Config.WorkerConcurrency, a.Config.WorkerPollEvery)
 	}()
 

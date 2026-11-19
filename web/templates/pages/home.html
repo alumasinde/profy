@@ -1,14 +1,48 @@
-{{define "content"}}<section class="hero">
+{{define "content"}}{{with .Data}}<section class="hero">
   <div class="container">
-    <h1>{{if .Site.Tagline}}{{.Site.Tagline}}{{else}}{{.Site.Name}}{{end}}</h1>
-    {{with .Site.Description}}<p class="lead">{{.}}</p>{{end}}
-    <p class="notice">{{t "public.home.launching_notice"}}</p>
-    <div class="hero-actions">
-      <a class="btn btn-primary" href="/auth/register">{{t "public.home.cta_create_account"}}</a>
-    </div>
+    <h1>{{if $.Site.Tagline}}{{$.Site.Tagline}}{{else}}{{$.Site.Name}}{{end}}</h1>
+    {{with $.Site.Description}}<p class="lead">{{.}}</p>{{end}}
+    {{template "searchform" .Form}}
+    {{if not .HasSupply}}<p class="notice">{{t "public.home.launching_notice"}}</p>{{end}}
   </div>
 </section>
-<section class="how">
+
+{{if .Categories}}<section class="section">
+  <div class="container">
+    <h2>{{t "discovery.home.categories"}}</h2>
+    <ul class="tiles">{{range .Categories}}<li><a class="tile" href="{{.URL}}"><span class="tile-name">{{.Label}}</span>
+      <span class="small muted">{{t "discovery.pros_count" "n" .Count}}</span></a></li>{{end}}</ul>
+    <p><a href="/categories">{{t "discovery.home.all_categories"}}</a></p>
+  </div>
+</section>{{end}}
+
+<section class="section">
+  <div class="container">
+    <div class="section-head">
+      <h2>{{.NearTitle}}</h2>
+      {{if .NearPlaces}}<form class="near-form" action="/" method="get">
+        <label for="near">{{t "discovery.home.choose_place"}}</label>
+        <select id="near" name="near">
+          <option value="">{{t "discovery.home.anywhere"}}</option>
+          {{range .NearPlaces}}<option value="{{.URL}}"{{if eq .URL $.Data.NearSlug}} selected{{end}}>{{.Label}}</option>{{end}}
+        </select>
+        <button class="btn btn-ghost btn-sm" type="submit">{{t "discovery.home.show"}}</button>
+      </form>{{end}}
+    </div>
+    {{if .Near}}<ul class="cards">{{range .Near}}{{template "card" .}}{{end}}</ul>
+      {{with .NearLink}}<p><a href="{{.}}">{{t "discovery.home.see_all_near"}}</a></p>{{end}}
+    {{else}}<p class="muted">{{t "discovery.home.no_near"}}</p>{{end}}
+  </div>
+</section>
+
+{{if .Services}}<section class="section">
+  <div class="container">
+    <h2>{{t "discovery.home.popular_services"}}</h2>
+    <ul class="chips">{{range .Services}}<li><a href="{{.URL}}">{{.Label}} <span class="muted">({{.Count}})</span></a></li>{{end}}</ul>
+  </div>
+</section>{{end}}
+
+<section class="how section">
   <div class="container">
     <h2>{{t "public.home.how_title"}}</h2>
     <ol class="steps">
@@ -17,4 +51,27 @@
       <li><h3>{{t "public.home.step_contact_title"}}</h3><p>{{t "public.home.step_contact_body"}}</p></li>
     </ol>
   </div>
+</section>
+
+{{if .Featured}}<section class="section">
+  <div class="container">
+    <h2>{{t "discovery.home.featured"}}</h2>
+    <p class="small muted">{{t "discovery.home.featured_note"}}</p>
+    <ul class="cards">{{range .Featured}}{{template "card" .}}{{end}}</ul>
+  </div>
 </section>{{end}}
+
+<section class="section band">
+  <div class="container split">
+    <div>
+      <h2>{{t "discovery.home.pros_title"}}</h2>
+      <p>{{t "discovery.home.pros_body"}}</p>
+      <a class="btn btn-primary" href="/provider">{{t "discovery.home.pros_cta"}}</a>
+    </div>
+    <div>
+      <h2>{{t "discovery.home.trust_title"}}</h2>
+      <p>{{t "discovery.home.trust_body"}}</p>
+      <p><a href="/badges">{{t "provider.public.badges_link"}}</a></p>
+    </div>
+  </div>
+</section>{{end}}{{end}}

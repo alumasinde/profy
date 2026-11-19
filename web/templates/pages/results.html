@@ -1,0 +1,58 @@
+{{define "content"}}{{with .Data}}<div class="container listing">
+  {{template "crumbs" .Crumbs}}
+  <h1>{{.H1}}</h1>
+  {{with .Lead}}<p class="lead">{{.}}</p>{{end}}
+  {{with .Intro}}<div class="prose intro">{{.}}</div>{{end}}
+  <details class="refine"{{if .Zero}} open{{end}}>
+    <summary>{{t "discovery.refine"}}</summary>
+    {{template "searchform" .Form}}
+  </details>
+  {{if .Alternates}}<p class="notice">{{t "discovery.did_you_mean"}} {{range $i, $a := .Alternates}}{{if $i}}, {{end}}<a href="{{$a.URL}}">{{$a.Label}}</a>{{end}}</p>{{end}}
+  {{if .Requested}}<p class="notice success" role="status" id="request">{{t "discovery.demand.thanks"}}</p>{{end}}
+  {{if .Zero}}
+    <section class="zero" aria-labelledby="zero-h">
+      <h2 id="zero-h">{{.ZeroTitle}}</h2>
+      <p>{{t "discovery.zero_body"}}</p>
+    </section>
+  {{else}}
+    <p class="muted results-count" aria-live="polite">{{.TotalText}}</p>
+    <ul class="cards">{{range .Cards}}{{template "card" .}}{{end}}</ul>
+    {{if or .Prev .Next}}<nav class="pager" aria-label="{{t "discovery.pager_label"}}">
+      {{with .Prev}}<a class="btn btn-ghost" href="{{.}}" rel="prev">{{t "discovery.prev"}}</a>{{end}}
+      <span class="muted">{{t "discovery.page_of" "page" .Page "pages" .Pages}}</span>
+      {{with .Next}}<a class="btn btn-ghost" href="{{.}}" rel="next">{{t "discovery.next"}}</a>{{end}}
+    </nav>{{end}}
+  {{end}}
+  {{template "linkgroups" .Groups}}
+  {{with .Demand}}{{if not $.Data.Requested}}<section class="card demand" id="request" aria-labelledby="demand-h">
+    <h2 id="demand-h">{{t "discovery.demand.title"}}</h2>
+    <p>{{t "discovery.demand.body"}}</p>
+    {{if $.Data.DemandErr}}<p class="field-error" role="alert">{{t "discovery.demand.error"}}</p>{{end}}
+    <form action="/requests" method="post">
+      <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+      <input type="hidden" name="return" value="{{.Return}}">
+      <input type="hidden" name="service" value="{{.ServiceSlug}}">
+      <input type="hidden" name="location" value="{{.LocationSlug}}">
+      <div class="grid2">
+        <div class="field"><label for="d-svc">{{t "discovery.demand.service"}}</label>
+          <input id="d-svc" name="service_text" value="{{.ServiceText}}" maxlength="120" required></div>
+        <div class="field"><label for="d-loc">{{t "discovery.demand.location"}}</label>
+          <input id="d-loc" name="location_text" value="{{.LocationText}}" maxlength="120"></div>
+      </div>
+      <div class="field"><label for="d-notes">{{t "discovery.demand.notes"}} <span class="muted">({{t "discovery.optional"}})</span></label>
+        <textarea id="d-notes" name="notes" rows="2" maxlength="500"></textarea></div>
+      <fieldset class="field">
+        <legend>{{t "discovery.demand.contact"}} <span class="muted">({{t "discovery.optional"}})</span></legend>
+        <div class="grid2">
+          <select name="contact_channel" aria-label="{{t "discovery.demand.channel"}}">
+            <option value="sms">{{t "discovery.demand.channel_sms"}}</option>
+            <option value="email">{{t "discovery.demand.channel_email"}}</option>
+          </select>
+          <input name="contact_value" aria-label="{{t "discovery.demand.contact_value"}}" maxlength="254" autocomplete="tel">
+        </div>
+        <label class="check"><input type="checkbox" name="contact_consent" value="1"> {{t "discovery.demand.consent"}}</label>
+      </fieldset>
+      <button class="btn btn-primary" type="submit">{{t "discovery.demand.submit"}}</button>
+    </form>
+  </section>{{end}}{{end}}
+</div>{{end}}{{end}}

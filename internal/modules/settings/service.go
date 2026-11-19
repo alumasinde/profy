@@ -32,6 +32,16 @@ const (
 	KeyDefaultContactVisibility = "default_contact_visibility"
 	KeyPortfolioMaxItems        = "portfolio_max_items"
 	KeyUploadMaxMB              = "upload_max_mb"
+
+	// Discovery (Phase 5).
+	KeyLandingMinProviders  = "landing_min_providers"
+	KeyLandingHysteresisDay = "landing_hysteresis_days"
+	KeyRankService          = "rank_weight_service"
+	KeyRankLocation         = "rank_weight_location"
+	KeyRankCompleteness     = "rank_weight_completeness"
+	KeyRankRating           = "rank_weight_rating"
+	KeyRankActivity         = "rank_weight_activity"
+	KeyRankExploration      = "rank_exploration_points"
 )
 
 // defaults are safe bootstrap values used when the database has no row (§4.2).
@@ -56,6 +66,15 @@ var defaults = map[string]any{
 	KeyDefaultContactVisibility: "reveal_on_click",
 	KeyPortfolioMaxItems:        30,
 	KeyUploadMaxMB:              8,
+
+	KeyLandingMinProviders:  3,
+	KeyLandingHysteresisDay: 14,
+	KeyRankService:          35,
+	KeyRankLocation:         30,
+	KeyRankCompleteness:     15,
+	KeyRankRating:           10,
+	KeyRankActivity:         10,
+	KeyRankExploration:      5,
 }
 
 type snapshot struct {

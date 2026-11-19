@@ -1,8 +1,15 @@
 {{define "footer"}}<footer class="site-footer">
   <div class="container">
+    {{if or .FooterCats .FooterPlaces}}<div class="footer-cols">
+      {{if .FooterCats}}<nav aria-label="{{t "discovery.footer.categories"}}"><h2 class="footer-h">{{t "discovery.footer.categories"}}</h2>
+        <ul class="footer-list">{{range .FooterCats}}<li><a href="{{.URL}}">{{.Label}}</a></li>{{end}}</ul></nav>{{end}}
+      {{if .FooterPlaces}}<nav aria-label="{{t "discovery.footer.places"}}"><h2 class="footer-h">{{t "discovery.footer.places"}}</h2>
+        <ul class="footer-list">{{range .FooterPlaces}}<li><a href="{{.URL}}">{{.Label}}</a></li>{{end}}</ul></nav>{{end}}
+    </div>{{end}}
     {{if .Footer}}<nav aria-label="{{t "public.nav.footer_label"}}">
       <ul class="footer-links">{{range .Footer}}<li><a href="{{.URL}}"{{if .External}} rel="noopener noreferrer"{{end}}>{{.Label}}</a></li>{{end}}</ul>
     </nav>{{end}}
     <p>&copy; {{.Site.Name}}</p>
   </div>
-</footer>{{end}}
+</footer>
+<script src="/static/js/discovery.js" defer></script>{{end}}

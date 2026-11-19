@@ -112,6 +112,7 @@ export interface Listing {
 	owner?: { public_id: string; display_name: string; phone: string | null; email: string | null } | null;
 	claim?: { destination: string; expires_at: string; claimed_at: string | null } | null;
 	history?: HistoryEntry[];
+	featured_until?: string | null;
 }
 
 /** Editor context: owner pages use '/provider'; staff use '/admin/providers/{id}'. */

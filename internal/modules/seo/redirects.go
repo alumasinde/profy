@@ -26,6 +26,9 @@ func ServicePath(slug string) string  { return "/services/" + slug }
 func LocationPath(slug string) string { return "/locations/" + slug }
 func ProviderPath(slug string) string { return "/professionals/" + slug }
 
+// LandingPath is the service × location landing page (§9.1).
+func LandingPath(service, location string) string { return "/services/" + service + "/" + location }
+
 // validPath accepts a clean, lowercase, absolute site path.
 func validPath(p string) bool {
 	if len(p) < 2 || len(p) > 300 || p[0] != '/' || strings.HasPrefix(p, "//") || strings.HasSuffix(p, "/") {

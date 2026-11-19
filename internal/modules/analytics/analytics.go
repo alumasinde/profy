@@ -17,9 +17,14 @@ const (
 	ProviderPhoneReveal   = "provider_phone_reveal"
 	ProviderWhatsAppClick = "provider_whatsapp_click"
 	ProviderEmailReveal   = "provider_email_reveal"
+	SearchPerformed       = "search_performed"
+	SearchZeroResults     = "search_zero_results"
+	DemandRequested       = "demand_requested"
 )
 
-var allowedProps = map[string]bool{"channel": true, "source": true}
+// allowedProps are the only properties stored. "q" is a normalized, digit-free search text
+// (≤ 40 characters) kept for unmatched searches so synonyms can be added.
+var allowedProps = map[string]bool{"channel": true, "source": true, "service": true, "location": true, "results": true, "q": true}
 
 // Record stores one event. The session hash is a truncated SHA-256 of the client IP and
 // user agent: enough to de-duplicate, not enough to identify.

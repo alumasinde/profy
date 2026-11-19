@@ -10,8 +10,10 @@ A Kenya-focused, public-first local services marketplace. **HudumaLink** is a co
 | 2 — Identity, auth, authorization | **Done**: three-part names, Kenyan phone normalization, OTP registration/login (HMAC'd, purpose-bound, expiring, attempt- and rate-limited, non-enumerating), device-bound Argon2id PIN with progressive lockout, recovery, sessions and device list, 125-key permission catalogue, six system roles, fail-closed authorization, CLI super-admin bootstrap, audit log, admin UI for users, roles and audit |
 | 3 — Dynamic platform and catalogue | **Done**: admin screens and APIs for site settings and branding (typed validation, WCAG contrast check on theme colours), feature flags, maintenance mode (503 for public pages), managed pages (restricted Markdown, preview, publish lifecycle), header/footer navigation, categories (two levels) and services with search synonyms, County → Town → Area administration with aliases, centroids, shared slug namespace and merges, and 301 redirects for every slug change. Every change is permission-checked and audited |
 | 4 — Provider management | **Done**: individual and business listings with guided onboarding and a completeness score; offered services with fixed/from/range/on-quote KES pricing; base area, radius, coverage and a private map pin; contacts with per-channel visibility, OTP-proven contact badges and a no-JS reveal; photo pipeline (type sniffing, re-encoding, metadata stripping, size variants) with portfolio moderation; identity, business and licence verification with private, audited document review; listing lifecycle (draft → review → published, pause, suspend, restore, archive) with a moderation queue, owner notifications and full history; assisted onboarding with secure claim links; public profile pages with JSON-LD and correct 404/410/noindex behaviour |
-| 5 — Search and SEO pages | Next |
-| 6–7 | Not started |
+| 5 — Public marketplace and SEO | **Done**: marketplace homepage, search by service and place (synonyms, aliases, explicit coverage across area/town/county, radius and one-time "near me"), configurable ranking with fair rotation for new listings, category/service/location pages and service × location landing pages with threshold-and-hysteresis indexing and admin overrides, sitemaps, robots, canonicals and structured data, zero-result alternatives and "request a professional" (works without JavaScript), search-gap and demand reports, featured curation. Measured at 10,000 providers: search p95 ≤ 263 ms, pages p95 ≤ 124 ms |
+| 6 — Customer engagement | Next |
+| 7 — Production hardening and MVP launch | Not started |
+| 8 — Jobs and reporting, 9 — Kotlin Android app | Follow-up releases after the MVP |
 
 ## Stack
 
@@ -66,6 +68,8 @@ cd frontend && npm run check
 ```
 
 Integration tests run against real MySQL and **reset the test database**, so never point `TEST_DATABASE_DSN` at real data. Without it, only unit tests run.
+
+Phase 5 tests cover search matching (coverage in another town, county-wide coverage, provider radius vs. visitor radius, axis order, drafts/paused/hidden excluded, bounded limits), ranking order, synonyms and place text, landing indexing with threshold, hysteresis, overrides, merges and renamed services, unique titles/canonicals/H1/JSON-LD on every public page type, sitemap eligibility, robots, zero-result alternatives, no-JS and JSON demand requests with CSRF, consent, retention purge and permissions, search-gap reporting, and featuring. A separate performance test (`go test -tags perf ./tests/perf`, needs `PERF_DATABASE_DSN`) loads 10,000 providers and checks the §19.1 targets.
 
 Phase 4 tests cover the exit criteria end to end (create → incomplete submit refused → submit → reject with notice → resubmit → approve → public; pause, suspend, restore, archive → 410), visibility of each state, owner/moderator/customer permissions, pre-moderation of edits and portfolio photos, upload sniffing and variants, private document access and audit, PDF active-content rejection, contact verification and badge loss on change, logged-in-only reveal, assisted claim (wrong person, token reuse, token never stored or logged), location merge re-pointing, and that contact values never reach the audit log.
 

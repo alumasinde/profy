@@ -56,6 +56,9 @@ var Catalogue = []Permission{
 	{"providers.assign_featured", "providers", "providers assign featured"},
 	{"providers.remove_featured", "providers", "providers remove featured"},
 	{"providers.export", "providers", "providers export"},
+	// discovery (Phase 5: "request a provider" demand signals hold optional contact details)
+	{"demand_requests.view", "discovery", "demand requests view"},
+	{"demand_requests.update", "discovery", "demand requests update"},
 	// provider_coverage
 	{"provider_services.view_own", "provider_coverage", "provider services view own"},
 	{"provider_services.create_own", "provider_coverage", "provider services create own"},

@@ -25,8 +25,9 @@ func TestCatalogueKeysUniqueAndWellFormed(t *testing.T) {
 			t.Errorf("broad permission %q is not allowed (§5.3)", p.Key)
 		}
 	}
-	if len(Catalogue) != 125 {
-		t.Errorf("catalogue has %d permissions; plan §5.4 lists 125", len(Catalogue))
+	// Plan §5.4 lists 125; Phase 5 adds demand_requests.view and demand_requests.update.
+	if len(Catalogue) != 127 {
+		t.Errorf("catalogue has %d permissions; want 127", len(Catalogue))
 	}
 }
 

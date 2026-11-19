@@ -289,24 +289,42 @@ type View struct {
 	Owner           *OwnerInfo           `json:"owner,omitempty"`
 	Claim           *ClaimInfo           `json:"claim,omitempty"`
 	History         []HistoryEntry       `json:"history,omitempty"`
+	FeaturedUntil   *time.Time           `json:"featured_until,omitempty"`
 	row             *row
 }
 
 func (s *Service) offered(ctx context.Context, ex database.Execer, pid uint64) ([]Offered, error) {
-	rows, err := ex.QueryContext(ctx, `SELECT public_id, service_id, custom_title, description, pricing_type, price_from, price_to, status
-		FROM provider_services WHERE provider_id = ? ORDER BY id`, pid)
+	m, err := s.offeredMany(ctx, ex, []uint64{pid})
+	if err != nil {
+		return nil, err
+	}
+	if m[pid] == nil {
+		return []Offered{}, nil
+	}
+	return m[pid], nil
+}
+
+// offeredMany loads offerings for several providers in two queries (no N+1).
+func (s *Service) offeredMany(ctx context.Context, ex database.Execer, pids []uint64) (map[uint64][]Offered, error) {
+	out := map[uint64][]Offered{}
+	if len(pids) == 0 {
+		return out, nil
+	}
+	ph, args := placeholders(pids)
+	rows, err := ex.QueryContext(ctx, `SELECT provider_id, public_id, service_id, custom_title, description, pricing_type, price_from, price_to, status
+		FROM provider_services WHERE provider_id IN (`+ph+`) ORDER BY provider_id, id`, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	out := []Offered{}
 	var sids []uint64
 	for rows.Next() {
 		var o Offered
+		var pid uint64
 		var pub ids.UUID
 		var ct, desc sql.NullString
 		var pf, pt sql.NullInt64
-		if err := rows.Scan(&pub, &o.serviceInternal, &ct, &desc, &o.PricingType, &pf, &pt, &o.Status); err != nil {
+		if err := rows.Scan(&pid, &pub, &o.serviceInternal, &ct, &desc, &o.PricingType, &pf, &pt, &o.Status); err != nil {
 			return nil, err
 		}
 		o.ID = pub.String()
@@ -324,7 +342,7 @@ func (s *Service) offered(ctx context.Context, ex database.Execer, pid uint64) (
 			v := int(pt.Int64)
 			o.PriceTo = &v
 		}
-		out = append(out, o)
+		out[pid] = append(out[pid], o)
 		sids = append(sids, o.serviceInternal)
 	}
 	if err := rows.Err(); err != nil {
@@ -334,11 +352,14 @@ func (s *Service) offered(ctx context.Context, ex database.Execer, pid uint64) (
 	if err != nil {
 		return nil, err
 	}
-	for i := range out {
-		if ref := refs[out[i].serviceInternal]; ref != nil {
-			out[i].ServiceID, out[i].ServiceName, out[i].ServiceSlug = ref.ID, ref.Name, ref.Slug
-			out[i].CategoryName, out[i].RequiresLicence, out[i].ServiceLive = ref.CategoryName, ref.RequiresLicence, ref.Live()
+	for pid, list := range out {
+		for i := range list {
+			if ref := refs[list[i].serviceInternal]; ref != nil {
+				list[i].ServiceID, list[i].ServiceName, list[i].ServiceSlug = ref.ID, ref.Name, ref.Slug
+				list[i].CategoryName, list[i].RequiresLicence, list[i].ServiceLive = ref.CategoryName, ref.RequiresLicence, ref.Live()
+			}
 		}
+		out[pid] = list
 	}
 	return out, nil
 }
@@ -1030,9 +1051,16 @@ func (s *Service) Transition(ctx context.Context, t Target, action, reason strin
 	return s.viewByID(ctx, id, t.Staff)
 }
 
-// staffExtras adds owner, claim and history for staff views.
+// staffExtras adds owner, claim, featuring and history for staff views.
 func (s *Service) staffExtras(ctx context.Context, ex database.Execer, v *View) error {
 	r := v.row
+	var fu sql.NullTime
+	if err := ex.QueryRowContext(ctx, `SELECT featured_until FROM providers WHERE id = ?`, r.id).Scan(&fu); err != nil {
+		return err
+	}
+	if fu.Valid && fu.Time.After(time.Now()) {
+		v.FeaturedUntil = &fu.Time
+	}
 	if r.ownerUserID != nil {
 		u, err := s.users.ByID(ctx, ex, *r.ownerUserID)
 		if err != nil {

@@ -63,6 +63,16 @@
 		}
 	}
 
+	let featureDays = $state(30);
+	async function feature(days: number) {
+		error = null;
+		try {
+			l = (await api.put<Listing>('/admin/providers/' + id + '/featured', { days })).data;
+		} catch (err) {
+			error = err;
+		}
+	}
+
 	async function sendInvite(e: SubmitEvent) {
 		e.preventDefault();
 		inviteErr = '';
@@ -152,6 +162,22 @@
 				</form>
 			{/if}
 		</section>
+		{#if l.status === 'published' && (can('providers.assign_featured') || can('providers.remove_featured'))}
+			<section class="card">
+				<h2>{t('app.admin.provider.featured')}</h2>
+				<p class="hint">{t('app.admin.provider.featured_hint')}</p>
+				{#if l.featured_until}
+					<p>{t('app.admin.provider.featured_until', { date: formatDate(l.featured_until) })}</p>
+					{#if can('providers.remove_featured')}<button class="btn" type="button" onclick={() => feature(0)}>{t('app.admin.provider.unfeature')}</button>{/if}
+				{:else if can('providers.assign_featured')}
+					<div class="row">
+						<label for="f-days">{t('app.admin.provider.feature_days')}</label>
+						<select id="f-days" bind:value={featureDays}>{#each [7, 14, 30, 60, 90] as d (d)}<option value={d}>{d}</option>{/each}</select>
+						<button class="btn btn-primary" type="button" onclick={() => feature(featureDays)}>{t('app.admin.provider.feature')}</button>
+					</div>
+				{/if}
+			</section>
+		{/if}
 		<section class="card">
 			<h2>{t('app.admin.provider.badges')}</h2>
 			{#if l.badges.length}<ul class="list-plain">{#each l.badges as b (b.type + (b.service_name ?? ''))}<li>✓ {b.label}{#if b.service_name} ({b.service_name}){/if}</li>{/each}</ul>

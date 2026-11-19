@@ -92,6 +92,16 @@ var Definitions = []Definition{
 	// Security floors are code-defined (§8.2): quotas and sizes are bounded here.
 	{Key: KeyPortfolioMaxItems, Kind: KindInt, Group: "marketplace", Required: true, Min: 1, Max: 100},
 	{Key: KeyUploadMaxMB, Kind: KindInt, Group: "marketplace", Required: true, Min: 1, Max: 20},
+	// Discovery: indexing thresholds and ranking weights within safe bounds (§9.6, §10.5).
+	// Eligibility rules (published, live service, coverage) are code and never configurable.
+	{Key: KeyLandingMinProviders, Kind: KindInt, Group: "discovery", Required: true, Min: 1, Max: 20},
+	{Key: KeyLandingHysteresisDay, Kind: KindInt, Group: "discovery", Required: true, Min: 0, Max: 90},
+	{Key: KeyRankService, Kind: KindInt, Group: "discovery", Required: true, Min: 10, Max: 60},
+	{Key: KeyRankLocation, Kind: KindInt, Group: "discovery", Required: true, Min: 10, Max: 60},
+	{Key: KeyRankCompleteness, Kind: KindInt, Group: "discovery", Required: true, Min: 0, Max: 30},
+	{Key: KeyRankRating, Kind: KindInt, Group: "discovery", Required: true, Min: 0, Max: 30},
+	{Key: KeyRankActivity, Kind: KindInt, Group: "discovery", Required: true, Min: 0, Max: 30},
+	{Key: KeyRankExploration, Kind: KindInt, Group: "discovery", Required: true, Min: 0, Max: 15},
 }
 
 func definition(key string) (Definition, bool) {

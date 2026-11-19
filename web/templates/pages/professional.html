@@ -6,6 +6,7 @@
   </div>
 </section>{{else}}<article class="profile">
   {{if .Cover}}<div class="profile-cover"><img src="{{.Cover}}" alt="" loading="eager"></div>{{end}}
+  <div class="container">{{template "crumbs" .Crumbs}}</div>
   <div class="container profile-grid">
     <header class="profile-head">
       {{if .Photo}}<img class="profile-photo" src="{{.Photo}}" srcset="{{.PhotoSrcSet}}" sizes="120px" alt="{{.Name}}" width="120" height="120">{{end}}

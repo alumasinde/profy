@@ -14,6 +14,7 @@ import (
 	"github.com/alumasinde/profy/internal/modules/analytics"
 	"github.com/alumasinde/profy/internal/modules/media"
 	"github.com/alumasinde/profy/internal/modules/public"
+	"github.com/alumasinde/profy/internal/modules/seo"
 	"github.com/alumasinde/profy/internal/modules/settings"
 	"github.com/alumasinde/profy/internal/modules/verification"
 	"github.com/alumasinde/profy/internal/security"
@@ -57,7 +58,26 @@ type ProfilePage struct {
 	Available               bool
 	Path                    string
 	RevealLimited           bool
+	Crumbs                  []Crumb
 	preview                 bool
+}
+
+// Crumb is one breadcrumb link.
+type Crumb struct {
+	Label string
+	URL   string
+}
+
+func breadcrumbLD(origin string, crumbs []Crumb) map[string]any {
+	items := make([]map[string]any, 0, len(crumbs))
+	for i, c := range crumbs {
+		it := map[string]any{"@type": "ListItem", "position": i + 1, "name": c.Label}
+		if c.URL != "" {
+			it["item"] = origin + c.URL
+		}
+		items = append(items, it)
+	}
+	return map[string]any{"@type": "BreadcrumbList", "itemListElement": items}
 }
 
 // IsPreview lets the layout show the preview banner.
@@ -130,8 +150,21 @@ func (h *PublicHandler) profile(w http.ResponseWriter, r *http.Request) {
 		response.Fail(w, r, err)
 		return
 	}
+	// Generated title: name, primary service and area (§9.3); staff may override.
 	meta := public.Meta{Title: row.displayName, Canonical: origin + page.Path, Robots: "index,follow"}
-	if v.BaseArea != nil {
+	primary := ""
+	for _, o := range v.Services {
+		if o.Status == "active" && o.ServiceLive {
+			primary = o.ServiceName
+			break
+		}
+	}
+	switch {
+	case primary != "" && v.BaseArea != nil:
+		meta.Title += " — " + primary + ", " + v.BaseArea.Name
+	case primary != "":
+		meta.Title += " — " + primary
+	case v.BaseArea != nil:
 		meta.Title += " — " + v.BaseArea.Name
 	}
 	meta.Title += " | " + h.pub.SiteName(r)
@@ -147,7 +180,8 @@ func (h *PublicHandler) profile(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "private, no-store")
 		meta.Robots = "noindex,nofollow"
 	} else {
-		meta.JSONLD = jsonLD(origin, page, v)
+		meta.JSONLD = map[string]any{"@context": "https://schema.org", "@graph": []any{
+			jsonLD(origin, page, v, h.svc.settings.String(ctx, "default_country")), breadcrumbLD(origin, page.Crumbs)}}
 		if p := reqctx.PrincipalFrom(ctx); p == nil || row.ownerUserID == nil || *row.ownerUserID != p.UserID {
 			if err := analytics.Record(ctx, h.svc.db, analytics.ProviderProfileView, row.id, map[string]string{"source": "web"}); err != nil {
 				h.svc.log.WarnContext(ctx, "analytics", "error", err)
@@ -214,6 +248,17 @@ func (s *Service) publicPage(ctx context.Context, r *row, reveal, path string, p
 	if v.BaseArea != nil {
 		page.Area = v.BaseArea.Label
 	}
+	page.Crumbs = []Crumb{{Label: s.i18n.T(locale, "discovery.crumb_home"), URL: "/"}}
+	for _, o := range v.Services {
+		if o.Status == "active" && o.ServiceLive {
+			page.Crumbs = append(page.Crumbs, Crumb{Label: o.ServiceName, URL: seo.ServicePath(o.ServiceSlug)})
+			if v.BaseArea != nil {
+				page.Crumbs = append(page.Crumbs, Crumb{Label: v.BaseArea.Name, URL: seo.LandingPath(o.ServiceSlug, v.BaseArea.Slug)})
+			}
+			break
+		}
+	}
+	page.Crumbs = append(page.Crumbs, Crumb{Label: v.DisplayName})
 	for _, c := range v.Coverage {
 		page.Coverage = append(page.Coverage, c.Label)
 	}
@@ -403,8 +448,8 @@ func summarize(p *ProfilePage) string {
 
 // jsonLD describes the listing as a LocalBusiness. Only publicly visible contacts appear;
 // there are no ratings until reviews exist (Phase 6), so none are emitted.
-func jsonLD(origin string, p *ProfilePage, v *View) map[string]any {
-	ld := map[string]any{"@context": "https://schema.org", "@type": "LocalBusiness", "name": p.Name, "url": origin + p.Path}
+func jsonLD(origin string, p *ProfilePage, v *View, country string) map[string]any {
+	ld := map[string]any{"@type": "LocalBusiness", "name": p.Name, "url": origin + p.Path}
 	if p.Description != "" {
 		ld["description"] = p.Description
 	}
@@ -412,7 +457,11 @@ func jsonLD(origin string, p *ProfilePage, v *View) map[string]any {
 		ld["image"] = origin + p.Photo
 	}
 	if v.BaseArea != nil {
-		ld["address"] = map[string]any{"@type": "PostalAddress", "addressLocality": v.BaseArea.Name, "addressCountry": "KE"}
+		addr := map[string]any{"@type": "PostalAddress", "addressLocality": v.BaseArea.Name}
+		if country != "" {
+			addr["addressCountry"] = country
+		}
+		ld["address"] = addr
 	}
 	if len(p.Coverage) > 0 {
 		ld["areaServed"] = p.Coverage

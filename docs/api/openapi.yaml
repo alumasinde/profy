@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: HudumaLink API
-  version: 0.4.0
+  version: 0.5.0
   description: |
     REST API shared by the Svelte web app and the future Kotlin app (plan §15).
     Phases 1–3: platform, authentication, roles, audit, settings, pages, navigation, catalogue, locations, redirects.
@@ -1301,6 +1301,92 @@ paths:
       parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
       responses:
         "200": { description: File }
+  /providers/search:
+    get:
+      summary: "Search published providers (§10.4–10.5): service text or slug, location slug or free text, optional one-time coordinates"
+      description: |
+        Matches explicit coverage (area, town, county — expanded through the hierarchy), base area and radius
+        (provider's own radius reaching the point, or the visitor's radius_km), then ranks by configurable weights.
+        Coordinates are used for this request only and never stored. Each search is logged (service/location slugs,
+        result bucket); zero-result searches also return alternatives.
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 100 }, description: "Service name, synonym, category or provider name" }
+        - { name: location, in: query, schema: { type: string }, description: County, town or area slug }
+        - { name: where, in: query, schema: { type: string }, description: Free-text place (alias-aware) }
+        - { name: lat, in: query, schema: { type: number } }
+        - { name: lng, in: query, schema: { type: number } }
+        - { name: radius_km, in: query, schema: { type: integer, minimum: 1, maximum: 50 } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, maximum: 50 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 20 } }
+      responses:
+        "200":
+          description: "data: items (provider cards), service, location, alternate_locations, alternatives (when empty); meta: total, page, pages, per_page"
+  /categories:
+    get:
+      summary: Published category tree with services
+      responses:
+        "200": { description: OK }
+  /demand-requests:
+    post:
+      summary: "Request a provider when nothing matched (§3.2). Optional contact needs consent; contacts are deleted after 90 days. Rate-limited"
+      requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { service: { type: string }, service_text: { type: string, maxLength: 120 }, location: { type: string }, location_text: { type: string, maxLength: 120 }, notes: { type: string, maxLength: 500 }, contact_channel: { type: string, enum: [sms, email] }, contact_value: { type: string }, contact_consent: { type: boolean } } } } } }
+      responses:
+        "201": { description: Created }
+        "422": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /admin/demand-requests:
+    get:
+      summary: Provider requests (demand_requests.view); viewing contact details is audited
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [new, in_progress, fulfilled, closed] } }
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200": { description: OK }
+        "403": { $ref: "#/components/responses/Error" }
+  /admin/demand-requests/{id}:
+    patch:
+      summary: Update status and staff note (demand_requests.update)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { status: { type: string }, staff_note: { type: string, maxLength: 500 } } } } } }
+      responses:
+        "204": { description: Updated }
+        "403": { $ref: "#/components/responses/Error" }
+  /admin/search-gaps:
+    get:
+      summary: Zero-result searches with matching provider requests (analytics.view_platform)
+      parameters: [{ name: days, in: query, schema: { type: integer, minimum: 1, maximum: 365, default: 30 } }]
+      responses:
+        "200": { description: OK }
+  /admin/landing-pages:
+    get:
+      summary: Service × location pages with counts and indexing state (seo.view)
+      parameters:
+        - { name: state, in: query, schema: { type: string, enum: [indexed, thin, overridden] } }
+        - { name: service, in: query, schema: { type: string }, description: service slug }
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200": { description: "data: rows; meta: next_cursor, min_providers" }
+    put:
+      summary: Override metadata, introduction (restricted Markdown) and indexing for one page (seo.update_pages); audited
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [service, location], properties: { service: { type: string }, location: { type: string }, robots_mode: { type: string, enum: [auto, index, noindex] }, meta_title: { type: string, maxLength: 160 }, meta_description: { type: string, maxLength: 320 }, intro: { type: string, maxLength: 2000 } } } } } }
+      responses:
+        "204": { description: Saved }
+        "422": { $ref: "#/components/responses/Error" }
+  /admin/landing-pages/evaluate:
+    post:
+      summary: Re-run the indexing evaluation now (also runs daily) (seo.update_pages)
+      responses:
+        "200": { description: "rows evaluated" }
+  /admin/providers/{id}/featured:
+    put:
+      summary: Feature a published listing on the homepage for 1–90 days, or 0 to stop (providers.assign_featured / remove_featured)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { days: { type: integer, minimum: 0, maximum: 90 } } } } } }
+      responses:
+        "200": { description: OK }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
   /admin/redirects:
     get:
       summary: Slug redirects (seo.manage_redirects)

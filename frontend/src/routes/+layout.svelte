@@ -50,7 +50,7 @@
 
 	const adminPerms = ['users.view_any', 'roles.view', 'audit_logs.view', 'platform.settings.view', 'platform.feature_flags.view',
 		'pages.view', 'navigation.view', 'categories.view', 'services.view', 'locations.view', 'seo.manage_redirects',
-		'providers.view_any', 'media.moderate'];
+		'providers.view_any', 'media.moderate', 'seo.view', 'analytics.view_platform', 'demand_requests.view'];
 	const isAdmin = $derived(adminPerms.some((p) => can(p)));
 	const current = (href: string) => (page.url.pathname === href || page.url.pathname.startsWith(href + '/') ? 'page' : undefined);
 </script>

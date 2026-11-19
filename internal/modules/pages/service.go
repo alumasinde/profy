@@ -569,3 +569,21 @@ func (h *AdminHandler) replaceMenu(w http.ResponseWriter, r *http.Request) {
 	}
 	response.OK(w, items)
 }
+
+// Indexable returns published pages that allow indexing (for the sitemap).
+func (s *Service) Indexable(ctx context.Context) ([]Page, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT `+pageCols+` FROM managed_pages WHERE status = 'published' AND robots_index = 1 ORDER BY slug`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Page
+	for rows.Next() {
+		p, err := scanPage(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *p)
+	}
+	return out, rows.Err()
+}

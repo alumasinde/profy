@@ -52,7 +52,7 @@ var SystemRoles = []RoleDef{
 		Permissions: []string{
 			"dashboard.view", "users.view", "users.view_any",
 			"providers.view", "providers.view_any", "inquiries.view_any",
-			"categories.view", "services.view", "locations.view",
+			"categories.view", "services.view", "locations.view", "demand_requests.view",
 		},
 	},
 	{
@@ -91,6 +91,7 @@ var SystemRoles = []RoleDef{
 			"notifications.view_any", "notification_templates.view", "notification_templates.create",
 			"notification_templates.update", "notification_templates.publish", "notification_channels.view",
 			"analytics.view_provider", "analytics.view_platform", "audit_logs.view",
+			"demand_requests.view", "demand_requests.update",
 		},
 	},
 	{

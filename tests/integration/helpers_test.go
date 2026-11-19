@@ -89,7 +89,7 @@ func newEnv(t *testing.T) *env {
 		"service_synonyms", "services", "categories", "location_aliases", "location_geo", "areas", "towns",
 		"providers", "provider_status_history", "provider_contacts", "provider_services", "provider_service_areas",
 		"provider_geo", "provider_portfolio", "provider_verifications", "verification_documents", "provider_claims",
-		"moderation_actions", "analytics_events", "media_files"} {
+		"moderation_actions", "analytics_events", "media_files", "seo_landing_pages", "demand_requests"} {
 		stmts = append(stmts, "TRUNCATE TABLE "+tbl)
 	}
 	stmts = append(stmts, "DELETE FROM location_slugs WHERE location_type <> 'county'",

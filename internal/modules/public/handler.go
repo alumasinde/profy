@@ -58,6 +58,9 @@ type Page struct {
 	Favicon       string
 	OGImage       string
 	Preview       bool
+	CSRF          string // token for server-rendered forms
+	FooterCats    []NavLink
+	FooterPlaces  []NavLink
 	Data          any
 }
 
@@ -73,6 +76,14 @@ type Handler struct {
 	Nav func(ctx context.Context, menu string) []NavLink
 	// Redirect returns a 301 target for a path that has no route, or "".
 	Redirect func(ctx context.Context, path string) string
+	// Home renders the homepage when set (the discovery module provides the marketplace
+	// homepage); otherwise a placeholder is shown.
+	Home http.HandlerFunc
+	// FooterLinks returns popular category and location links for the footer.
+	FooterLinks func(ctx context.Context) (categories, places []NavLink)
+	// AllowIndexing is false outside production: robots.txt then disallows everything so
+	// staging copies never compete with the live site.
+	AllowIndexing bool
 }
 
 // New parses templates: each page is combined with the layouts and partials.
@@ -87,7 +98,7 @@ func New(fsys fs.FS, cat *i18n.Catalogue, st *settings.Service, siteURL string, 
 		t := template.New(name).Funcs(template.FuncMap{
 			// t is rebound per request in render; this placeholder only satisfies parsing.
 			"t": func(string, ...any) string { return "" },
-		})
+		}).Funcs(helpers)
 		t, err = t.ParseFS(fsys, "templates/layouts/*.html", "templates/partials/*.html", p)
 		if err != nil {
 			return nil, fmt.Errorf("parse %s: %w", p, err)
@@ -100,9 +111,32 @@ func New(fsys fs.FS, cat *i18n.Catalogue, st *settings.Service, siteURL string, 
 	return h, nil
 }
 
+// helpers are pure template functions available to every public page.
+var helpers = template.FuncMap{
+	// initial is the first letter of a name for placeholder avatars (rune-safe).
+	"initial": func(s string) string {
+		for _, r := range strings.TrimSpace(s) {
+			return strings.ToUpper(string(r))
+		}
+		return "?"
+	},
+	"deref": func(p *float64) float64 {
+		if p == nil {
+			return 0
+		}
+		return *p
+	},
+}
+
 // Register mounts public routes.
 func (h *Handler) Register(mux *http.ServeMux) {
-	mux.HandleFunc("GET /{$}", h.home)
+	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
+		if h.Home != nil {
+			h.Home(w, r)
+			return
+		}
+		h.home(w, r)
+	})
 	mux.HandleFunc("GET /theme.css", h.theme)
 	mux.HandleFunc("GET /robots.txt", h.robots)
 }
@@ -166,6 +200,10 @@ func (h *Handler) Render(w http.ResponseWriter, r *http.Request, status int, nam
 	if h.Nav != nil {
 		page.Header, page.Footer = h.Nav(ctx, "header"), h.Nav(ctx, "footer")
 	}
+	if h.FooterLinks != nil {
+		page.FooterCats, page.FooterPlaces = h.FooterLinks(ctx)
+	}
+	page.CSRF = reqctx.CSRFToken(ctx)
 	var buf bytes.Buffer
 	if err := t.ExecuteTemplate(&buf, "base", page); err != nil {
 		h.log.ErrorContext(r.Context(), "template render failed", "template", name, "error", err)
@@ -253,9 +291,19 @@ func (h *Handler) theme(w http.ResponseWriter, r *http.Request) {
 		color(settings.KeyPrimaryColor, "#0f766e"), color(settings.KeySecondaryColor, "#1e293b"), color(settings.KeyAccentColor, "#b45309"))
 }
 
-// robots keeps private and application areas out of search indexes (§9.4).
-// The sitemap line is added in Phase 5 when sitemaps exist.
+// robots keeps private, application and search-result pages out of search indexes and
+// points crawlers at the sitemap (§9.4). Non-production environments disallow everything.
 func (h *Handler) robots(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	fmt.Fprint(w, "User-agent: *\nDisallow: /api/\nDisallow: /auth/\nDisallow: /account/\nDisallow: /provider/\nDisallow: /admin/\n")
+	w.Header().Set("Cache-Control", "public, max-age=3600")
+	var b strings.Builder
+	b.WriteString("User-agent: *\n")
+	if !h.AllowIndexing {
+		b.WriteString("Disallow: /\n")
+	}
+	for _, p := range []string{"/api/", "/auth/", "/account/", "/provider/", "/admin/", "/preview/", "/search", "/requests"} {
+		b.WriteString("Disallow: " + p + "\n")
+	}
+	b.WriteString("\nSitemap: " + h.SiteOrigin(r) + "/sitemap.xml\n")
+	_, _ = w.Write([]byte(b.String()))
 }

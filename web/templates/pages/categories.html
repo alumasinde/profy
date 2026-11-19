@@ -1,0 +1,12 @@
+{{define "content"}}{{with .Data}}<div class="container listing">
+  {{template "crumbs" .Crumbs}}
+  <h1>{{.H1}}</h1>
+  {{template "searchform" .Form}}
+  {{range .Groups}}<section class="catgroup">
+    <h2><a href="{{.URL}}">{{.Name}}</a> <span class="small muted">{{t "discovery.pros_count" "n" .Count}}</span></h2>
+    {{with .Description}}<p>{{.}}</p>{{end}}
+    {{if .Services}}<ul class="chips">{{range .Services}}<li><a href="{{.URL}}">{{.Label}}{{if .Count}} <span class="muted">({{.Count}})</span>{{end}}</a></li>{{end}}</ul>{{end}}
+    {{range .Subgroups}}{{if .Links}}<h3>{{.Title}}</h3>
+      <ul class="chips">{{range .Links}}<li><a href="{{.URL}}">{{.Label}}{{if .Count}} <span class="muted">({{.Count}})</span>{{end}}</a></li>{{end}}</ul>{{end}}{{end}}
+  </section>{{else}}<p class="muted">{{t "discovery.no_categories"}}</p>{{end}}
+</div>{{end}}{{end}}

@@ -55,6 +55,7 @@ func (h *Handler) Register(mux *http.ServeMux, prefix string) {
 	mux.Handle("PATCH "+prefix+"/admin/providers/{id}", staffOnly(h.update(staff)))
 	mux.Handle("POST "+prefix+"/admin/providers/{id}/status", staffOnly(h.staffTransition))
 	mux.Handle("POST "+prefix+"/admin/providers/{id}/invite", staffOnly(h.invite))
+	mux.Handle("PUT "+prefix+"/admin/providers/{id}/featured", staffOnly(h.featured))
 	mux.Handle("POST "+prefix+"/admin/providers/{id}/services", staffOnly(h.addService(staff)))
 	mux.Handle("PATCH "+prefix+"/admin/providers/{id}/services/{offer}", staffOnly(h.updateService(staff)))
 	mux.Handle("DELETE "+prefix+"/admin/providers/{id}/services/{offer}", staffOnly(h.removeService(staff)))
@@ -341,5 +342,18 @@ func (h *Handler) invite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v, err := h.svc.Invite(r.Context(), r.PathValue("id"), in)
+	reply(w, r, v, err)
+}
+
+// featured sets {days} of homepage featuring (0 removes it).
+func (h *Handler) featured(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Days int `json:"days"`
+	}
+	if err := response.Decode(w, r, &in); err != nil {
+		response.Fail(w, r, err)
+		return
+	}
+	v, err := h.svc.SetFeatured(r.Context(), r.PathValue("id"), in.Days)
 	reply(w, r, v, err)
 }

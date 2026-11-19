@@ -1,0 +1,47 @@
+{{define "searchform"}}<form class="search-form" action="/search" method="get" role="search">
+  <div class="sf-field">
+    <label for="sf-q">{{t "discovery.form.what"}}</label>
+    <input id="sf-q" name="q" type="search" value="{{.Q}}" placeholder="{{t "discovery.form.what_placeholder"}}" autocomplete="off" maxlength="100">
+  </div>
+  <div class="sf-field">
+    <label for="sf-where">{{t "discovery.form.where"}}</label>
+    <input id="sf-where" name="where" type="text" value="{{.Where}}" placeholder="{{t "discovery.form.where_placeholder"}}" list="sf-places" autocomplete="off" maxlength="100" data-place-input>
+    {{if .Places}}<datalist id="sf-places">{{range .Places}}<option value="{{.}}">{{end}}</datalist>{{end}}
+  </div>
+  <input type="hidden" name="lat" value="{{.Lat}}" data-lat>
+  <input type="hidden" name="lng" value="{{.Lng}}" data-lng>
+  <div class="sf-actions">
+    <button class="btn btn-primary" type="submit">{{t "discovery.form.submit"}}</button>
+    <button class="btn btn-ghost" type="button" data-near-me data-locating="{{t "discovery.form.locating"}}" data-denied="{{t "discovery.form.denied"}}" hidden>{{t "discovery.form.near_me"}}</button>
+  </div>
+  <p class="sf-status small muted" data-near-status aria-live="polite"></p>
+</form>{{end}}
+
+{{define "crumbs"}}{{if .}}<nav class="crumbs" aria-label="{{t "discovery.crumbs_label"}}"><ol>
+  {{range .}}<li>{{if .URL}}<a href="{{.URL}}">{{.Label}}</a>{{else}}<span aria-current="page">{{.Label}}</span>{{end}}</li>{{end}}
+</ol></nav>{{end}}{{end}}
+
+{{define "card"}}<li class="pcard">
+  <a class="pcard-main" href="{{.Path}}">
+    {{if .Photo}}<img class="pcard-photo" src="{{.Photo}}" srcset="{{.PhotoSrcSet}}" sizes="72px" alt="" width="72" height="72" loading="lazy">
+    {{else}}<span class="pcard-photo pcard-initial" aria-hidden="true">{{initial .Name}}</span>{{end}}
+    <span class="pcard-body">
+      <span class="pcard-name">{{.Name}}</span>
+      {{if .ServiceName}}<span class="pcard-service">{{.ServiceName}}{{with .Price}} · <span class="pcard-price">{{.}}</span>{{end}}</span>{{end}}
+      <span class="pcard-where">{{with .BaseArea}}{{t "discovery.card.based_in" "place" .}}{{end}}{{with .Serves}} · {{t "discovery.card.serves" "place" .}}{{end}}</span>
+      {{if .RatingCount}}<span class="pcard-rating">★ {{printf "%.1f" (deref .RatingAverage)}} ({{.RatingCount}})</span>{{end}}
+      {{if .Badges}}<span class="pcard-badges">{{range .Badges}}<span class="badge">✓ {{.Label}}</span>{{end}}</span>{{end}}
+      {{with .Excerpt}}<span class="pcard-excerpt">{{.}}</span>{{end}}
+    </span>
+  </a>
+  <div class="pcard-actions">
+    <a class="btn btn-ghost btn-sm" href="{{.Path}}">{{t "discovery.card.view"}}<span class="sr-only"> — {{.Name}}</span></a>
+    {{with .PhoneHref}}<a class="btn btn-ghost btn-sm" href="{{.}}" rel="nofollow">{{t "discovery.card.call"}}<span class="sr-only"> {{$.Name}}</span></a>{{end}}
+    {{with .WhatsAppHref}}<a class="btn btn-ghost btn-sm" href="{{.}}" rel="nofollow noopener" target="_blank">WhatsApp<span class="sr-only"> {{$.Name}}</span></a>{{end}}
+  </div>
+</li>{{end}}
+
+{{define "linkgroups"}}{{range .}}{{if .Links}}<section class="linkgroup">
+  <h2>{{.Title}}</h2>
+  <ul class="chips">{{range .Links}}<li><a href="{{.URL}}">{{.Label}}{{if .Count}} <span class="muted">({{.Count}})</span>{{end}}</a></li>{{end}}</ul>
+</section>{{end}}{{end}}{{end}}

@@ -189,9 +189,14 @@ func CSRF(secure bool, siteOrigin func(*http.Request) string) func(http.Handler)
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			cookie, _ := r.Cookie(name)
+			token := ""
 			if cookie == nil || len(cookie.Value) < 32 {
-				SetCSRFCookie(w, secure, security.RandomToken(32))
+				token = security.RandomToken(32)
+				SetCSRFCookie(w, secure, token)
+			} else {
+				token = cookie.Value
 			}
+			r = r.WithContext(reqctx.WithCSRFToken(r.Context(), token))
 			switch r.Method {
 			case http.MethodGet, http.MethodHead, http.MethodOptions:
 				next.ServeHTTP(w, r)
@@ -206,6 +211,11 @@ func CSRF(secure bool, siteOrigin func(*http.Request) string) func(http.Handler)
 				return
 			}
 			header := r.Header.Get(CSRFHeader)
+			if header == "" && strings.HasPrefix(r.Header.Get("Content-Type"), "application/x-www-form-urlencoded") {
+				// Server-rendered forms (no JavaScript) carry the token in a hidden field.
+				r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
+				header = r.PostFormValue("csrf_token")
+			}
 			if cookie == nil || header == "" || subtle.ConstantTimeCompare([]byte(cookie.Value), []byte(header)) != 1 {
 				response.Fail(w, r, response.ErrCSRF)
 				return
