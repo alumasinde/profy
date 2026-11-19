@@ -1,0 +1,25 @@
+{
+  "public": {
+    "skip_to_content": "Ruka hadi maudhui",
+    "nav": {
+      "login": "Ingia",
+      "join_free": "Jiunge bure",
+      "my_account": "Akaunti yangu"
+    },
+    "not_found": {
+      "title": "Ukurasa haupatikani",
+      "home_link": "Rudi mwanzo"
+    },
+    "maintenance": {
+      "title": "Tutarudi hivi punde"
+    }
+  },
+  "app": {
+    "loading": "Inapakia…",
+    "nav": {
+      "login": "Ingia",
+      "register": "Jiunge bure",
+      "logout": "Toka"
+    }
+  }
+}

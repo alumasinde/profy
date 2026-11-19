@@ -1,0 +1,8 @@
+{{define "footer"}}<footer class="site-footer">
+  <div class="container">
+    {{if .Footer}}<nav aria-label="{{t "public.nav.footer_label"}}">
+      <ul class="footer-links">{{range .Footer}}<li><a href="{{.URL}}"{{if .External}} rel="noopener noreferrer"{{end}}>{{.Label}}</a></li>{{end}}</ul>
+    </nav>{{end}}
+    <p>&copy; {{.Site.Name}}</p>
+  </div>
+</footer>{{end}}

@@ -1,0 +1,945 @@
+openapi: 3.1.0
+info:
+  title: HudumaLink API
+  version: 0.3.0
+  description: |
+    REST API shared by the Svelte web app and the future Kotlin app (plan §15).
+    Phases 1–3: platform, authentication, roles, audit, settings, pages, navigation, catalogue, locations, redirects.
+
+    * Cookie-authenticated unsafe requests must send `X-CSRF-Token` equal to the
+      `hl_csrf` (or `__Host-hl_csrf`) cookie.
+    * Identifiers are public UUIDs or slugs, never internal IDs.
+    * Errors use stable codes; `message` is an English fallback, clients localize by `code`.
+servers:
+  - url: /api/v1
+security:
+  - sessionCookie: []
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: hl_session
+  parameters:
+    Cursor:
+      name: cursor
+      in: query
+      schema: { type: string }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+    UserID:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, request_id]
+          properties:
+            code:
+              type: string
+              enum: [bad_request, validation_failed, unauthenticated, forbidden, not_found, conflict, rate_limited,
+                internal_error, csrf_failed, invalid_or_expired_code, invalid_credentials, reauthentication_required,
+                weak_pin, channel_unavailable, pin_locked, unsupported_media_type, parent_not_published, has_dependents,
+                location_merged]
+            message: { type: string }
+            fields:
+              type: object
+              additionalProperties: { type: string }
+              description: Per-field codes such as required, invalid, too_long, pin_sequence.
+            request_id: { type: string }
+    PageMeta:
+      type: object
+      properties:
+        next_cursor: { type: [string, "null"] }
+    Challenge:
+      type: object
+      required: [challenge_id, channel, destination_masked, expires_in, resend_after]
+      properties:
+        challenge_id: { type: string, format: uuid }
+        channel: { type: string, enum: [sms, email] }
+        destination_masked: { type: string }
+        expires_in: { type: integer, description: seconds }
+        resend_after: { type: integer, description: seconds }
+    User:
+      type: object
+      required: [public_id, first_name, middle_name, last_name, display_name, email, phone, email_verified,
+        phone_verified, preferred_locale, roles]
+      properties:
+        public_id: { type: string, format: uuid }
+        first_name: { type: string }
+        middle_name: { type: [string, "null"] }
+        last_name: { type: string }
+        display_name: { type: string }
+        email: { type: [string, "null"] }
+        phone: { type: [string, "null"], description: E.164 }
+        email_verified: { type: boolean }
+        phone_verified: { type: boolean }
+        preferred_locale: { type: string }
+        roles: { type: array, items: { type: string } }
+    AdminUser:
+      allOf:
+        - $ref: "#/components/schemas/User"
+        - type: object
+          properties:
+            status: { type: string, enum: [active, suspended, pending_deletion, deleted] }
+            last_login_at: { type: [string, "null"], format: date-time }
+            created_at: { type: string, format: date-time }
+    Session:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        auth_method: { type: string, enum: [otp, pin, recovery] }
+        device_name: { type: string }
+        user_agent: { type: string }
+        ip_address: { type: string }
+        created_at: { type: string, format: date-time }
+        last_seen_at: { type: string, format: date-time }
+        is_current: { type: boolean }
+    Role:
+      type: object
+      properties:
+        key: { type: string }
+        name: { type: string }
+        description: { type: string }
+        is_system: { type: boolean }
+        is_protected: { type: boolean }
+        user_count: { type: integer }
+        permissions: { type: array, items: { type: string } }
+    Permission:
+      type: object
+      properties:
+        key: { type: string }
+        module: { type: string }
+        description: { type: string }
+    AuditEntry:
+      type: object
+      properties:
+        id: { type: string }
+        actor_public_id: { type: [string, "null"] }
+        actor_name: { type: [string, "null"] }
+        action: { type: string }
+        entity_type: { type: string }
+        entity_id: { type: [string, "null"] }
+        old_values: { type: object }
+        new_values: { type: object }
+        ip_address: { type: string, description: Only with audit_logs.view_sensitive }
+        request_id: { type: [string, "null"] }
+        created_at: { type: string, format: date-time }
+    Lifecycle:
+      type: string
+      enum: [draft, published, archived]
+      description: Publishing/unpublishing/restoring needs <resource>.publish; archiving needs <resource>.archive.
+    Seo:
+      type: object
+      properties:
+        meta_title: { type: [string, "null"], maxLength: 160 }
+        meta_description: { type: [string, "null"], maxLength: 320 }
+    Setting:
+      type: object
+      properties:
+        key: { type: string }
+        kind: { type: string, enum: [string, url, asset, email, phone, color, locale, timezone, country, currency, version, social, channels] }
+        group: { type: string }
+        required: { type: boolean }
+        max_length: { type: integer }
+        public: { type: boolean }
+        value: {}
+    Flag:
+      type: object
+      properties:
+        key: { type: string }
+        enabled: { type: boolean }
+        description: { type: string }
+    Page:
+      allOf:
+        - $ref: "#/components/schemas/Seo"
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            slug: { type: string }
+            path: { type: string }
+            title: { type: string }
+            body: { type: string, description: Restricted Markdown (headings, lists, bold, safe links) }
+            status: { $ref: "#/components/schemas/Lifecycle" }
+            robots_index: { type: boolean }
+            published_at: { type: [string, "null"], format: date-time }
+            updated_at: { type: string, format: date-time }
+    MenuItem:
+      type: object
+      required: [label, url, is_active]
+      properties:
+        id: { type: string, format: uuid }
+        label: { type: string, maxLength: 80 }
+        url: { type: string, description: "Site path (/about), https://, mailto: or tel:" }
+        is_active: { type: boolean }
+    Category:
+      allOf:
+        - $ref: "#/components/schemas/Seo"
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            parent_id: { type: [string, "null"], format: uuid }
+            slug: { type: string }
+            path: { type: string }
+            name: { type: string }
+            description: { type: string }
+            sort_order: { type: integer }
+            status: { $ref: "#/components/schemas/Lifecycle" }
+            published_at: { type: [string, "null"], format: date-time }
+            service_count: { type: integer }
+    Service:
+      allOf:
+        - $ref: "#/components/schemas/Seo"
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            category_id: { type: string, format: uuid }
+            category_name: { type: string }
+            slug: { type: string }
+            path: { type: string }
+            name: { type: string }
+            description: { type: string }
+            requires_licence: { type: boolean }
+            sort_order: { type: integer }
+            status: { $ref: "#/components/schemas/Lifecycle" }
+            published_at: { type: [string, "null"], format: date-time }
+            synonyms: { type: [array, "null"], items: { type: string } }
+    Location:
+      allOf:
+        - $ref: "#/components/schemas/Seo"
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            type: { type: string, enum: [county, town, area] }
+            name: { type: string }
+            slug: { type: string, description: Unique across counties, towns and areas }
+            path: { type: string }
+            code: { type: string, description: County code (counties only) }
+            parent_id: { type: [string, "null"], format: uuid }
+            parent_name: { type: string }
+            is_selectable: { type: boolean }
+            is_indexable: { type: boolean }
+            status: { type: string, enum: [active, archived] }
+            merged_into_id: { type: string, format: uuid }
+            child_count: { type: integer }
+            centroid:
+              type: [object, "null"]
+              properties:
+                latitude: { type: number }
+                longitude: { type: number }
+            aliases: { type: array, items: { type: string } }
+    Redirect:
+      type: object
+      properties:
+        id: { type: string }
+        old_path: { type: string }
+        new_path: { type: string }
+        source: { type: string, enum: [auto, manual] }
+        created_at: { type: string, format: date-time }
+  responses:
+    Error:
+      description: Error envelope
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    ChallengeSent:
+      description: |
+        A code was sent if the details are valid. The response is identical whether or not an
+        account exists for the destination.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data: { $ref: "#/components/schemas/Challenge" }
+    SignedIn:
+      description: Session cookie set; CSRF cookie rotated.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                type: object
+                properties:
+                  authenticated: { type: boolean }
+                  new_user: { type: boolean }
+paths:
+  /i18n/{locale}:
+    get:
+      security: []
+      summary: UI string catalogue (shared with server-rendered pages)
+      parameters:
+        - { name: locale, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Messages merged over the default locale
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      locale: { type: string }
+                      locales: { type: array, items: { type: string } }
+                      messages: { type: object, additionalProperties: { type: string } }
+        "404": { $ref: "#/components/responses/Error" }
+  /settings/public:
+    get:
+      security: []
+      summary: Public site settings and feature flags
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      settings: { type: object }
+                      feature_flags: { type: object, additionalProperties: { type: boolean } }
+  /auth/session:
+    get:
+      security: []
+      summary: Current session (also issues the CSRF cookie)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      authenticated: { type: boolean }
+                      user: { $ref: "#/components/schemas/User" }
+                      permissions: { type: array, items: { type: string }, description: Display only }
+                      has_pin: { type: boolean }
+                      reauthenticated_until: { type: [string, "null"], format: date-time }
+  /auth/register:
+    post:
+      security: []
+      summary: Start registration (sends an OTP)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [first_name, last_name, destination, accept_terms]
+              additionalProperties: false
+              properties:
+                first_name: { type: string, maxLength: 100 }
+                middle_name: { type: [string, "null"], maxLength: 100 }
+                last_name: { type: string, maxLength: 100 }
+                destination: { type: string, description: "Kenyan mobile (07…, 01…, 254…, +254…) or email" }
+                accept_terms: { type: boolean }
+                locale: { type: string }
+      responses:
+        "202": { $ref: "#/components/responses/ChallengeSent" }
+        "422": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /auth/otp/send:
+    post:
+      security: []
+      summary: Send a login code, or a sensitive_change code to the signed-in user's verified channel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                destination: { type: string }
+                purpose: { type: string, enum: [login, sensitive_change], default: login }
+                channel: { type: string, enum: [sms, email] }
+      responses:
+        "202": { $ref: "#/components/responses/ChallengeSent" }
+        "422": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /auth/otp/verify:
+    post:
+      security: []
+      summary: Verify a registration, login or sensitive_change code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [challenge_id, code]
+              additionalProperties: false
+              properties:
+                challenge_id: { type: string, format: uuid }
+                code: { type: string, pattern: "^[0-9]{6}$" }
+                device_name: { type: string, maxLength: 120 }
+      responses:
+        "200": { $ref: "#/components/responses/SignedIn" }
+        "401": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /auth/pin/setup:
+    post:
+      summary: Set or replace the PIN (requires re-verification within 10 minutes)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pin]
+              properties:
+                pin: { type: string, pattern: "^[0-9]{6}$" }
+      responses:
+        "204": { description: Saved }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /auth/pin/login:
+    post:
+      security: []
+      summary: PIN login on a device that previously completed OTP login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [destination, pin]
+              properties:
+                destination: { type: string }
+                pin: { type: string }
+      responses:
+        "200": { $ref: "#/components/responses/SignedIn" }
+        "401": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /auth/logout:
+    post:
+      summary: Revoke the current session
+      responses:
+        "204": { description: Signed out }
+  /auth/recovery/start:
+    post:
+      security: []
+      summary: Send a recovery code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [destination]
+              properties:
+                destination: { type: string }
+      responses:
+        "202": { $ref: "#/components/responses/ChallengeSent" }
+  /auth/recovery/complete:
+    post:
+      security: []
+      summary: Verify recovery, unlock or replace the PIN, sign out all other sessions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [challenge_id, code]
+              properties:
+                challenge_id: { type: string, format: uuid }
+                code: { type: string }
+                new_pin: { type: [string, "null"] }
+                device_name: { type: string }
+      responses:
+        "200": { $ref: "#/components/responses/SignedIn" }
+        "401": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /auth/sessions:
+    get:
+      summary: Signed-in devices
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Session" } }
+    delete:
+      summary: Sign out all other devices
+      responses:
+        "200":
+          description: Count revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: object, properties: { revoked: { type: integer } } }
+  /auth/sessions/{id}:
+    delete:
+      summary: Sign out one of your own sessions
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: Revoked }
+        "404": { $ref: "#/components/responses/Error" }
+  /customer/profile:
+    get:
+      summary: Own profile
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/User" }
+    patch:
+      summary: Update own names and language
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [first_name, last_name]
+              additionalProperties: false
+              properties:
+                first_name: { type: string }
+                middle_name: { type: [string, "null"] }
+                last_name: { type: string }
+                preferred_locale: { type: string }
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/User" }
+        "422": { $ref: "#/components/responses/Error" }
+  /admin/roles:
+    get:
+      summary: Roles with permissions (roles.view)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Role" } }
+  /admin/roles/{key}/permissions:
+    put:
+      summary: Replace a role's permissions (roles.permissions.assign; audited)
+      parameters:
+        - { name: key, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [permissions]
+              properties:
+                permissions: { type: array, items: { type: string } }
+      responses:
+        "200":
+          description: Updated role
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Role" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /admin/permissions:
+    get:
+      summary: Permission catalogue (permissions.view)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Permission" } }
+  /admin/users:
+    get:
+      summary: Users, newest first (users.view_any)
+      parameters:
+        - { name: q, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string } }
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/AdminUser" } }
+                  meta: { $ref: "#/components/schemas/PageMeta" }
+  /admin/users/{id}:
+    get:
+      summary: One user (users.view_any)
+      parameters: [{ $ref: "#/components/parameters/UserID" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/AdminUser" }
+        "404": { $ref: "#/components/responses/Error" }
+  /admin/users/{id}/roles:
+    put:
+      summary: Replace a user's roles (users.roles.assign; protected roles need a holder; audited)
+      parameters: [{ $ref: "#/components/parameters/UserID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [roles]
+              properties:
+                roles: { type: array, items: { type: string } }
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/AdminUser" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /admin/users/{id}/status:
+    patch:
+      summary: Suspend (users.suspend, reason required) or restore (users.restore); audited
+      parameters: [{ $ref: "#/components/parameters/UserID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [active, suspended] }
+                reason: { type: string, maxLength: 500 }
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/AdminUser" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /admin/audit-logs:
+    get:
+      summary: Audit log, newest first (audit_logs.view)
+      parameters:
+        - { name: entity_type, in: query, schema: { type: string } }
+        - { name: entity_id, in: query, schema: { type: string } }
+        - { name: action, in: query, schema: { type: string } }
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/AuditEntry" } }
+                  meta: { $ref: "#/components/schemas/PageMeta" }
+  /admin/settings:
+    get:
+      summary: Administrable settings with definitions (platform.settings.view)
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: "#/components/schemas/Setting" } } } } } } }
+    patch:
+      summary: Partial update; per-key permission (platform.settings.update; otp_channels needs notification_channels.configure); colours contrast-checked; audited
+      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: "#/components/schemas/Setting" } } } } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /admin/feature-flags:
+    get:
+      summary: Feature flags (platform.feature_flags.view)
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: "#/components/schemas/Flag" } } } } } } }
+    patch:
+      summary: Toggle existing flags (platform.feature_flags.update; audited)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: { type: boolean } } } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: "#/components/schemas/Flag" } } } } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /admin/maintenance:
+    get:
+      summary: Maintenance state (platform.settings.view)
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { type: object, properties: { enabled: { type: boolean } } } } } } } }
+    put:
+      summary: Enable (platform.maintenance.enable) or disable (platform.maintenance.disable) maintenance; public pages return 503
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [enabled], properties: { enabled: { type: boolean } } } } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { type: object, properties: { enabled: { type: boolean } } } } } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /admin/pages:
+    get:
+      summary: Managed pages (pages.view)
+      parameters: [{ name: status, in: query, schema: { $ref: "#/components/schemas/Lifecycle" } }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: "#/components/schemas/Page" } } } } } } }
+    post:
+      summary: Create a draft page (pages.create)
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/Page" } } } }
+      responses:
+        "201": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Page" } } } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /admin/pages/{id}:
+    get:
+      summary: One page (pages.view)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Page" } } } } } }
+    patch:
+      summary: Update content (pages.update) and/or status (pages.publish / pages.archive); slug changes after publication create 301 redirects
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/Page" } } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Page" } } } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /admin/navigation/{menu}:
+    get:
+      summary: Menu items (navigation.view)
+      parameters: [{ name: menu, in: path, required: true, schema: { type: string, enum: [header, footer] } }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: "#/components/schemas/MenuItem" } } } } } } }
+    put:
+      summary: Replace a menu in order (navigation.update; max 20; audited)
+      parameters: [{ name: menu, in: path, required: true, schema: { type: string, enum: [header, footer] } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/MenuItem" } } } } } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: "#/components/schemas/MenuItem" } } } } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /admin/categories:
+    get:
+      summary: All categories, tree-ordered (categories.view)
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: "#/components/schemas/Category" } } } } } } }
+    post:
+      summary: Create a draft category; parent must be top-level (categories.create)
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/Category" } } } }
+      responses:
+        "201": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Category" } } } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /admin/categories/{id}:
+    get:
+      summary: One category (categories.view)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Category" } } } } } }
+    patch:
+      summary: Update (categories.update) and/or status (categories.publish / categories.archive); parent_not_published / has_dependents conflicts
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/Category" } } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Category" } } } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /admin/services:
+    get:
+      summary: Services by name with keyset pagination; q matches name, slug and synonyms (services.view)
+      parameters:
+        - { name: category_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { $ref: "#/components/schemas/Lifecycle" } }
+        - { name: q, in: query, schema: { type: string } }
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: "#/components/schemas/Service" } }, meta: { $ref: "#/components/schemas/PageMeta" } } } } } }
+    post:
+      summary: Create a draft service (services.create)
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/Service" } } } }
+      responses:
+        "201": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Service" } } } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /admin/services/{id}:
+    get:
+      summary: One service with synonyms (services.view)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Service" } } } } } }
+    patch:
+      summary: Update (services.update) and/or status (services.publish / services.archive); publishing needs a published category
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/Service" } } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Service" } } } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /admin/services/{id}/synonyms:
+    put:
+      summary: Replace search synonyms (services.update; max 30; normalized; audited)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [synonyms], properties: { synonyms: { type: array, items: { type: string } } } } } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Service" } } } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /admin/locations/{kind}:
+    get:
+      summary: Locations by name with keyset pagination; q matches names and aliases (locations.view)
+      parameters:
+        - { name: kind, in: path, required: true, schema: { type: string, enum: [counties, towns, areas] } }
+        - { name: parent_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string, enum: [active, archived] } }
+        - { name: q, in: query, schema: { type: string } }
+        - $ref: "#/components/parameters/Cursor"
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: "#/components/schemas/Location" } }, meta: { $ref: "#/components/schemas/PageMeta" } } } } } }
+    post:
+      summary: Create a town or area (locations.create); slug clashes are disambiguated (ruaka → ruaka-nairobi)
+      parameters: [{ name: kind, in: path, required: true, schema: { type: string, enum: [counties, towns, areas] } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/Location" } } } }
+      responses:
+        "201": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Location" } } } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /admin/locations/{kind}/{id}:
+    get:
+      summary: One location with aliases (locations.view)
+      parameters:
+        - { name: kind, in: path, required: true, schema: { type: string, enum: [counties, towns, areas] } }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Location" } } } } } }
+    patch:
+      summary: Update (locations.update) or archive/reactivate (locations.archive). Counties accept flags and SEO only.
+      parameters:
+        - { name: kind, in: path, required: true, schema: { type: string, enum: [counties, towns, areas] } }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/Location" } } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Location" } } } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /admin/locations/{kind}/{id}/aliases:
+    put:
+      summary: Replace aliases (locations.manage_aliases); each alias belongs to one location
+      parameters:
+        - { name: kind, in: path, required: true, schema: { type: string, enum: [counties, towns, areas] } }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [aliases], properties: { aliases: { type: array, items: { type: string } } } } } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Location" } } } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /admin/locations/{kind}/{id}/centroid:
+    put:
+      summary: Set centroid inside Kenya (locations.manage_coordinates)
+      parameters:
+        - { name: kind, in: path, required: true, schema: { type: string, enum: [counties, towns, areas] } }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [latitude, longitude], properties: { latitude: { type: number }, longitude: { type: number } } } } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Location" } } } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+    delete:
+      summary: Clear centroid (locations.manage_coordinates)
+      parameters:
+        - { name: kind, in: path, required: true, schema: { type: string, enum: [counties, towns, areas] } }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Location" } } } } } }
+  /admin/locations/merge:
+    post:
+      summary: Merge a duplicate town or area into another (locations.merge); source archived and redirected
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [type, source_id, target_id], properties: { type: { type: string, enum: [town, area] }, source_id: { type: string, format: uuid }, target_id: { type: string, format: uuid } } } } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Location" } } } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /admin/redirects:
+    get:
+      summary: Slug redirects (seo.manage_redirects)
+      parameters:
+        - { name: q, in: query, schema: { type: string } }
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: "#/components/schemas/Redirect" } }, meta: { $ref: "#/components/schemas/PageMeta" } } } } } }
+    post:
+      summary: Add a manual 301 redirect; chains are collapsed (seo.manage_redirects)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [old_path, new_path], properties: { old_path: { type: string }, new_path: { type: string } } } } } }
+      responses:
+        "201": { description: OK, content: { application/json: { schema: { type: object } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /admin/redirects/{id}:
+    delete:
+      summary: Remove a redirect (seo.manage_redirects)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        "204": { description: Removed }

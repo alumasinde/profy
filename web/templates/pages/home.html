@@ -1,0 +1,20 @@
+{{define "content"}}<section class="hero">
+  <div class="container">
+    <h1>{{if .Site.Tagline}}{{.Site.Tagline}}{{else}}{{.Site.Name}}{{end}}</h1>
+    {{with .Site.Description}}<p class="lead">{{.}}</p>{{end}}
+    <p class="notice">{{t "public.home.launching_notice"}}</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="/auth/register">{{t "public.home.cta_create_account"}}</a>
+    </div>
+  </div>
+</section>
+<section class="how">
+  <div class="container">
+    <h2>{{t "public.home.how_title"}}</h2>
+    <ol class="steps">
+      <li><h3>{{t "public.home.step_find_title"}}</h3><p>{{t "public.home.step_find_body"}}</p></li>
+      <li><h3>{{t "public.home.step_compare_title"}}</h3><p>{{t "public.home.step_compare_body"}}</p></li>
+      <li><h3>{{t "public.home.step_contact_title"}}</h3><p>{{t "public.home.step_contact_body"}}</p></li>
+    </ol>
+  </div>
+</section>{{end}}

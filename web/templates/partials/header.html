@@ -1,0 +1,17 @@
+{{define "header"}}{{if .Preview}}<div class="preview-banner" role="status">{{t "public.preview_banner"}}</div>{{end}}
+<header class="site-header">
+  <div class="container header-inner">
+    <a class="brand" href="/">{{if .Logo}}<img src="{{.Logo}}" alt="{{.Site.Name}}" height="36">{{else}}{{.Site.Name}}{{end}}</a>
+    {{if .Header}}<nav class="main-nav" aria-label="{{t "public.nav.main_label"}}">
+      <ul>{{range .Header}}<li><a href="{{.URL}}"{{if .External}} rel="noopener noreferrer"{{end}}>{{.Label}}</a></li>{{end}}</ul>
+    </nav>{{end}}
+    <nav class="header-actions" aria-label="{{t "public.nav.account_label"}}">
+      {{if .Authenticated}}
+        <a class="btn btn-ghost" href="/account">{{t "public.nav.my_account"}}</a>
+      {{else}}
+        <a class="btn btn-ghost" href="/auth/login">{{t "public.nav.login"}}</a>
+        <a class="btn btn-primary" href="/auth/register">{{t "public.nav.join_free"}}</a>
+      {{end}}
+    </nav>
+  </div>
+</header>{{end}}
