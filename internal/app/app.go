@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/alumasinde/profy/internal/authz"
@@ -21,14 +22,18 @@ import (
 	"github.com/alumasinde/profy/internal/modules/auth"
 	"github.com/alumasinde/profy/internal/modules/categories"
 	"github.com/alumasinde/profy/internal/modules/locations"
+	"github.com/alumasinde/profy/internal/modules/media"
 	"github.com/alumasinde/profy/internal/modules/notifications"
 	"github.com/alumasinde/profy/internal/modules/pages"
+	"github.com/alumasinde/profy/internal/modules/providers"
 	"github.com/alumasinde/profy/internal/modules/public"
 	"github.com/alumasinde/profy/internal/modules/roles"
 	"github.com/alumasinde/profy/internal/modules/seo"
 	"github.com/alumasinde/profy/internal/modules/services"
 	"github.com/alumasinde/profy/internal/modules/settings"
+	"github.com/alumasinde/profy/internal/modules/verification"
 	"github.com/alumasinde/profy/internal/security"
+	"github.com/alumasinde/profy/internal/storage"
 	"github.com/alumasinde/profy/web"
 )
 
@@ -44,6 +49,8 @@ type App struct {
 	Queue    *jobsqueue.Queue
 	Senders  map[string]notifications.Sender
 	Handler  http.Handler
+	// Providers is exposed for tests and graceful shutdown (claim deliveries).
+	Providers *providers.Service
 }
 
 // NewLogger returns JSON logs outside local development (§19.4).
@@ -101,6 +108,24 @@ func Build(cfg *config.Config, log *slog.Logger, db *sql.DB) (*App, error) {
 		return to
 	}
 
+	// Phase 4: media, verification and provider listings.
+	pubStore, err := storage.NewFS(filepath.Join(cfg.MediaDir, "public"))
+	if err != nil {
+		return nil, err
+	}
+	privStore, err := storage.NewFS(filepath.Join(cfg.MediaDir, "private"))
+	if err != nil {
+		return nil, err
+	}
+	locSvc := locations.New(db, az)
+	mediaSvc := media.New(db, az, st, pubStore, privStore, log)
+	verSvc := verification.New(db, az, mediaSvc)
+	provSvc := providers.New(providers.Deps{DB: db, Log: log, Authz: az, Settings: st, I18n: cat, Auth: authSvc, Services: svcSvc,
+		Locations: locSvc, Media: mediaSvc, Verification: verSvc, Senders: senders, SiteURL: cfg.SiteURL})
+	mediaSvc.RegisterJobs(q)
+	verSvc.RegisterJobs(q)
+	provSvc.RegisterJobs(q)
+
 	h, err := routes.New(routes.Deps{
 		DB: db, Log: log, WebFS: web.FS, I18n: cat, Settings: st, Public: pub, Auth: authSvc,
 		APIs: []routes.APIModule{
@@ -111,16 +136,26 @@ func Build(cfg *config.Config, log *slog.Logger, db *sql.DB) (*App, error) {
 			seo.NewHandler(redirects, az),
 			categories.NewHandler(catSvc, az),
 			services.NewHandler(svcSvc, az),
-			locations.NewHandler(locations.New(db, az), az),
+			locations.NewHandler(locSvc, az),
+			locations.NewPublicHandler(locSvc),
+			services.NewPublicHandler(svcSvc),
+			media.NewAdminHandler(mediaSvc),
+			verification.NewHandler(verSvc),
+			providers.NewHandler(provSvc),
+			providers.NewAPIHandler(provSvc),
 		},
-		Pages:      []routes.PublicModule{pages.NewPublicHandler(pageSvc, pub, az)},
+		Pages: []routes.PublicModule{
+			media.NewPublicHandler(mediaSvc),
+			providers.NewPublicHandler(provSvc, pub),
+			pages.NewPublicHandler(pageSvc, pub, az),
+		},
 		TrustProxy: cfg.TrustProxy, Secure: cfg.SecureCookies(),
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &App{Config: cfg, Log: log, DB: db, I18n: cat, Settings: st, Authz: az, Auth: authSvc,
-		Queue: q, Senders: senders, Handler: h}, nil
+		Queue: q, Senders: senders, Handler: h, Providers: provSvc}, nil
 }
 
 func buildSenders(cfg *config.Config, log *slog.Logger) (map[string]notifications.Sender, error) {
@@ -169,7 +204,7 @@ func (a *App) Serve(ctx context.Context) error {
 	workersDone := make(chan struct{})
 	go func() {
 		defer close(workersDone)
-		go auth.ScheduleMaintenance(workerCtx, a.DB, a.Log)
+		go jobsqueue.ScheduleDaily(workerCtx, a.DB, a.Log, auth.JobPruneAuth, verification.JobExpire)
 		a.Queue.Run(workerCtx, a.Config.WorkerConcurrency, a.Config.WorkerPollEvery)
 	}()
 
@@ -194,6 +229,7 @@ func (a *App) Serve(ctx context.Context) error {
 	defer cancel()
 	err := srv.Shutdown(shutCtx)
 	a.Auth.WaitDeliveries()
+	a.Providers.WaitDeliveries()
 	stopWorkers()
 	<-workersDone
 	return err

@@ -9,8 +9,9 @@ A Kenya-focused, public-first local services marketplace. **HudumaLink** is a co
 | 1 — Foundation | **Done**: single Go binary, config, MySQL + goose migrations, county seeds, request IDs, structured logs, error envelope, CSP/CSRF, i18n catalogues, outbox worker, SvelteKit app embedded, Go-rendered placeholder homepage, health checks, CI, Docker Compose |
 | 2 — Identity, auth, authorization | **Done**: three-part names, Kenyan phone normalization, OTP registration/login (HMAC'd, purpose-bound, expiring, attempt- and rate-limited, non-enumerating), device-bound Argon2id PIN with progressive lockout, recovery, sessions and device list, 125-key permission catalogue, six system roles, fail-closed authorization, CLI super-admin bootstrap, audit log, admin UI for users, roles and audit |
 | 3 — Dynamic platform and catalogue | **Done**: admin screens and APIs for site settings and branding (typed validation, WCAG contrast check on theme colours), feature flags, maintenance mode (503 for public pages), managed pages (restricted Markdown, preview, publish lifecycle), header/footer navigation, categories (two levels) and services with search synonyms, County → Town → Area administration with aliases, centroids, shared slug namespace and merges, and 301 redirects for every slug change. Every change is permission-checked and audited |
-| 4 — Provider management | Next |
-| 5–7 | Not started |
+| 4 — Provider management | **Done**: individual and business listings with guided onboarding and a completeness score; offered services with fixed/from/range/on-quote KES pricing; base area, radius, coverage and a private map pin; contacts with per-channel visibility, OTP-proven contact badges and a no-JS reveal; photo pipeline (type sniffing, re-encoding, metadata stripping, size variants) with portfolio moderation; identity, business and licence verification with private, audited document review; listing lifecycle (draft → review → published, pause, suspend, restore, archive) with a moderation queue, owner notifications and full history; assisted onboarding with secure claim links; public profile pages with JSON-LD and correct 404/410/noindex behaviour |
+| 5 — Search and SEO pages | Next |
+| 6–7 | Not started |
 
 ## Stack
 
@@ -65,6 +66,8 @@ cd frontend && npm run check
 ```
 
 Integration tests run against real MySQL and **reset the test database**, so never point `TEST_DATABASE_DSN` at real data. Without it, only unit tests run.
+
+Phase 4 tests cover the exit criteria end to end (create → incomplete submit refused → submit → reject with notice → resubmit → approve → public; pause, suspend, restore, archive → 410), visibility of each state, owner/moderator/customer permissions, pre-moderation of edits and portfolio photos, upload sniffing and variants, private document access and audit, PDF active-content rejection, contact verification and badge loss on change, logged-in-only reveal, assisted claim (wrong person, token reuse, token never stored or logged), location merge re-pointing, and that contact values never reach the audit log.
 
 Phase 3 tests cover: per-key settings permissions, normalization and contrast rejection; data-driven branding and navigation on public pages; maintenance mode; page publish, preview access, slug redirects and chain collapsing; category/service publish ordering and conflict codes; synonym normalization and search; location slug disambiguation across counties, towns and areas; unique aliases; centroid axis order (verified with a real distance); merges; and audit entries for every change.
 

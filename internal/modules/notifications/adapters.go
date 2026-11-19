@@ -214,3 +214,15 @@ func (a *AfricasTalkingSender) Send(ctx context.Context, m Message) error {
 	}
 	return nil
 }
+
+// JobProviderNotify tells a provider's owner about a listing or verification decision.
+// The payload holds no contact details or secrets; the handler resolves the recipient.
+const JobProviderNotify = "provider.notify"
+
+// ProviderNotice is the JobProviderNotify payload.
+type ProviderNotice struct {
+	ProviderID uint64 `json:"provider_id"`
+	Event      string `json:"event"`  // listing_approved | listing_rejected | listing_suspended | listing_restored | verification_approved | verification_rejected
+	Detail     string `json:"detail"` // e.g. badge label
+	Reason     string `json:"reason"`
+}

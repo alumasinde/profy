@@ -57,6 +57,9 @@ type Config struct {
 
 	WorkerConcurrency int
 	WorkerPollEvery   time.Duration
+
+	// MediaDir holds uploads: <dir>/public (served images) and <dir>/private (documents).
+	MediaDir string
 }
 
 // IsProduction reports whether this is the production environment.
@@ -97,6 +100,7 @@ func Load() (*Config, error) {
 		ATBaseURL:          get("AT_BASE_URL", "https://api.africastalking.com"),
 		WorkerConcurrency:  getInt("WORKER_CONCURRENCY", 2),
 		WorkerPollEvery:    getDuration("WORKER_POLL_INTERVAL", 2*time.Second),
+		MediaDir:           get("MEDIA_DIR", "./data/media"),
 	}
 	return c, c.Validate()
 }

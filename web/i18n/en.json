@@ -59,7 +59,15 @@
     "network": "We could not reach the server. Check your connection and try again.",
     "parent_not_published": "Publish the parent first (the category above this one).",
     "has_dependents": "This still has active items underneath it. Unpublish, archive or move them first.",
-    "location_merged": "This location was merged into another one and can no longer be edited."
+    "location_merged": "This location was merged into another one and can no longer be edited.",
+    "no_provider": "You have not created a provider profile yet.",
+    "listing_incomplete": "Complete the required sections before submitting.",
+    "invalid_transition": "That action is not possible in the listing's current state.",
+    "listing_archived": "This listing is archived and can no longer be changed.",
+    "claim_destination_mismatch": "Sign in with the phone number or email address the invitation was sent to.",
+    "provider_exists": "You already have a provider profile.",
+    "claim_invalid": "This claim link is invalid or has expired. Ask the team to send a new one.",
+    "already_claimed": "This listing already has an owner."
   },
   "fields": {
     "required": "This field is required.",
@@ -77,7 +85,12 @@
     "out_of_range": "This point is outside Kenya.",
     "has_children": "A category with subcategories cannot become a subcategory.",
     "too_many": "Too many entries.",
-    "read_only": "This cannot be changed."
+    "read_only": "This cannot be changed.",
+    "too_large": "This file is too large.",
+    "unsupported_type": "Upload a JPEG, PNG or WebP image (or PDF for documents).",
+    "bad_dimensions": "The image is too small or too large.",
+    "corrupt_file": "This file could not be read.",
+    "unsafe_pdf": "This PDF contains active content and cannot be accepted. Export or scan it again."
   },
   "app": {
     "loading": "Loading…",
@@ -89,7 +102,8 @@
       "logout": "Log out",
       "login": "Log in",
       "register": "Join free",
-      "main_label": "Main"
+      "main_label": "Main",
+      "provider": "My listing"
     },
     "common": {
       "save": "Save",
@@ -252,7 +266,8 @@
         "contact": "Contact details",
         "regional": "Regional defaults",
         "legal": "Policy versions",
-        "security": "Sign-in channels"
+        "security": "Sign-in channels",
+        "marketplace": "Marketplace"
       },
       "setting": {
         "site_name": "Site name",
@@ -277,7 +292,13 @@
         "default_currency": "Currency code",
         "terms_version": "Terms version",
         "privacy_version": "Privacy policy version",
-        "otp_channels": "Verification code channels"
+        "otp_channels": "Verification code channels",
+        "provider_terms_version": "Provider terms version",
+        "listing_edit_moderation": "Review of edits to live listings",
+        "portfolio_moderation": "Review of new portfolio photos",
+        "default_contact_visibility": "Default contact visibility",
+        "portfolio_max_items": "Maximum portfolio photos",
+        "upload_max_mb": "Maximum upload size (MB)"
       },
       "asset_hint": "An https:// URL or a /static/ path.",
       "contrast": "Contrast {ratio}:1",
@@ -355,6 +376,69 @@
       "redirect_source": {
         "auto": "Automatic",
         "manual": "Manual"
+      },
+      "providers": "Provider listings",
+      "verifications": "Verification requests",
+      "media": "Photo moderation",
+      "range_hint": "Between {min} and {max}.",
+      "setting_option": {
+        "listing_edit_moderation": {
+          "post": "Publish immediately, review afterwards",
+          "pre": "Send name and photo changes back for review"
+        },
+        "portfolio_moderation": {
+          "post": "Show immediately, review afterwards",
+          "pre": "Hide until approved"
+        },
+        "default_contact_visibility": {
+          "public": "Visible to everyone",
+          "reveal_on_click": "Shown after a click",
+          "logged_in_only": "Signed-in visitors only",
+          "hidden": "Hidden"
+        }
+      },
+      "provider": {
+        "action": {
+          "approve": "Approve",
+          "reject": "Reject",
+          "submit": "Submit for review",
+          "pause": "Pause",
+          "resume": "Resume",
+          "suspend": "Suspend",
+          "restore": "Restore",
+          "archive": "Archive"
+        },
+        "assisted_hint": "Create a draft on behalf of a professional. They become the owner only after signing in with the phone or email you invite and accepting the provider terms.",
+        "claimed": "Claimed",
+        "unclaimed": "Not yet claimed",
+        "claimed_on": "Claimed on {date}.",
+        "completeness": "Complete",
+        "decision": "Decision",
+        "documents": "Documents",
+        "documents_audited": "Documents are private. Every time you open one it is recorded in the audit log.",
+        "edit": "Edit listing",
+        "history": "Status history",
+        "invite_channel": "Send claim invite by",
+        "invite_destination": "Phone or email to invite",
+        "invite_pending": "Invite sent to {destination}; it expires on {date}.",
+        "invite_sent": "Invite sent.",
+        "licence_expiry": "Licence expiry date",
+        "moderation": "Review",
+        "new_assisted": "New assisted listing",
+        "no_owner": "No owner yet — this is an assisted draft.",
+        "open_document": "Open",
+        "owner": "Owner",
+        "provider": "Provider",
+        "queue_hint": "Oldest first. Check the details against our listing rules before approving.",
+        "reason_label": "Reason (shown to the provider)",
+        "reason_hint": "Required to reject or suspend. Be specific so the provider knows what to fix.",
+        "reject_note": "Reason for rejecting",
+        "send_invite": "Send invite",
+        "submitted": "Submitted",
+        "summary": "What visitors will see",
+        "badges": "Badges",
+        "about": "About",
+        "areas": "Areas served"
       }
     },
     "not_found": "This page does not exist.",
@@ -363,7 +447,15 @@
       "draft": "Draft",
       "published": "Published",
       "archived": "Archived",
-      "active": "Active"
+      "active": "Active",
+      "pending_review": "Waiting for review",
+      "paused": "Paused",
+      "suspended": "Suspended",
+      "pending": "Pending",
+      "verified": "Verified",
+      "rejected": "Rejected",
+      "expired": "Expired",
+      "pending_moderation": "Waiting for review"
     },
     "lifecycle": {
       "publish": "Publish",
@@ -371,6 +463,266 @@
       "archive": "Archive",
       "restore": "Restore as draft",
       "reactivate": "Reactivate"
+    },
+    "provider": {
+      "nav_label": "Listing sections",
+      "tab": {
+        "overview": "Overview",
+        "profile": "Profile",
+        "services": "Services & prices",
+        "areas": "Service areas",
+        "contacts": "Contacts",
+        "photos": "Photos",
+        "verification": "Verification"
+      },
+      "lead": {
+        "profile": "Tell customers who you are and what you do.",
+        "services": "Choose the services you offer and how you price them. Prices are in Kenyan shillings.",
+        "areas": "Where you are based and where you are willing to work.",
+        "contacts": "How customers reach you, and who can see each contact.",
+        "photos": "A clear profile photo and photos of real work help customers choose you.",
+        "verification": "Badges show customers what we have checked. Your documents are only seen by our review team."
+      },
+      "start_title": "List your services",
+      "start_lead": "Create your listing in a few steps. It stays private until our team approves it.",
+      "start_button": "Create my listing",
+      "claim_hint": "Did our team create a listing for you? Open the link in the message we sent instead.",
+      "type": "I am",
+      "type_individual": "An individual professional",
+      "type_business": "A business",
+      "type_locked": "This can only be changed while the listing is a draft.",
+      "display_name": "Name shown to customers",
+      "display_name_hint": "Your name or your business name, for example \"Jane Wanjiru Plumbing\".",
+      "description": "About you",
+      "description_hint": "{n} characters. At least 80 makes a stronger profile.",
+      "years": "Years of experience",
+      "slug_hint": "Changing the address of a published listing redirects the old one.",
+      "accept_terms": "I accept the provider terms (version {version}).",
+      "accept_terms_short": "I accept the provider terms and confirm the details I give are true.",
+      "completeness": "Profile {score}% complete",
+      "item": {
+        "display_name": "Name",
+        "services": "At least one service",
+        "base_area": "Base area",
+        "service_areas": "Areas you serve",
+        "contacts": "A contact method",
+        "terms": "Provider terms accepted",
+        "description": "A description (80+ characters)",
+        "profile_photo": "Profile photo",
+        "portfolio": "Portfolio photos",
+        "experience": "Years of experience"
+      },
+      "required": "Required",
+      "done": "done",
+      "todo": "to do",
+      "status_help": {
+        "draft": "Your listing is private. Complete the required sections, then submit it for review.",
+        "pending_review": "Our team is reviewing your listing. You can keep editing while you wait.",
+        "published": "Your listing is live and customers can find you.",
+        "paused": "Your listing is paused. Customers see that you are not taking enquiries.",
+        "suspended": "Your listing has been suspended by our team. Contact support if you think this is a mistake.",
+        "archived": "This listing has been archived and can no longer be changed."
+      },
+      "reason": "Note from our team",
+      "submitted_on": "Submitted {date}",
+      "expires_on": "Expires {date}",
+      "submit": "Submit for review",
+      "pause": "Pause listing",
+      "resume": "Resume listing",
+      "confirm_pause": "Pause your listing? Customers will see that you are not available.",
+      "confirm_archive": "Archive this listing permanently? This cannot be undone.",
+      "missing": "Still needed: {items}.",
+      "stats_title": "Last 30 days",
+      "stats_views": "{n} profile views",
+      "stats_reveals": "Contacts shown — phone: {phone}, WhatsApp: {whatsapp}, email: {email}",
+      "badges": "Your badges",
+      "get_verified": "Request more badges",
+      "archive_title": "Archive listing",
+      "archive_hint": "Archiving removes your listing for good. Use Pause if you only need a break.",
+      "your_services": "Your services ({n})",
+      "no_services": "You have not added any services yet.",
+      "add_service": "Add a service",
+      "find_service": "Find a service",
+      "find_service_hint": "For example: plumbing, tutor, salon",
+      "change": "Change",
+      "pricing_type": "Pricing",
+      "pricing": {
+        "fixed": "Fixed price",
+        "from": "Starting price",
+        "range": "Price range",
+        "on_quote": "On quote"
+      },
+      "price_kes": "Price (KES)",
+      "price_min": "Lowest price (KES)",
+      "price_max": "Highest price (KES)",
+      "price_fixed": "KES {amount}",
+      "price_from": "From KES {amount}",
+      "price_range": "KES {from} – {to}",
+      "price_on_quote": "Price on quote",
+      "custom_title": "Your own title for this service",
+      "offer_active": "Shown",
+      "offer_hidden": "Hidden",
+      "service_unavailable": "No longer offered on the site",
+      "licence_needed": "Licence badge available",
+      "licence_note": "This service needs a licence. You can request a licence badge under Verification.",
+      "remove_service_confirm": "Remove {name} from your listing?",
+      "base_area": "Where you are based",
+      "base_area_hint": "Pick your county, town and area. Customers see the area, not your exact location.",
+      "no_areas": "No areas are available in this town yet.",
+      "radius": "How far you travel (km)",
+      "radius_hint": "Up to {max} km.",
+      "radius_km": "up to {km} km",
+      "coverage": "Areas you serve",
+      "coverage_hint": "Add counties, towns or areas where you take jobs.",
+      "no_coverage": "No areas added yet.",
+      "add_coverage": "Add an area",
+      "add_coverage_hint": "Type at least 2 letters",
+      "add_base_to_coverage": "Add my base area",
+      "pin": "Map pin (private)",
+      "pin_hint": "Optional. Helps match you with nearby customers. Your exact pin is never shown publicly.",
+      "use_my_location": "Use my current location",
+      "locating": "Finding your location…",
+      "clear_pin": "Remove pin",
+      "geo_unavailable": "Your browser cannot share a location.",
+      "geo_denied": "We could not get your location. Check your browser's location permission or enter it manually.",
+      "channel": {
+        "phone": "Phone",
+        "whatsapp": "WhatsApp",
+        "email": "Email"
+      },
+      "contact_value": {
+        "phone": "Phone number",
+        "whatsapp": "WhatsApp number",
+        "email": "Email address"
+      },
+      "visibility": "Who can see it",
+      "vis": {
+        "public": "Everyone",
+        "reveal_on_click": "After clicking \"Show\"",
+        "logged_in_only": "Signed-in visitors",
+        "hidden": "Nobody (hidden)"
+      },
+      "vis_hint": {
+        "public": "Shown on your public page.",
+        "reveal_on_click": "Shown when a visitor clicks to reveal it. This discourages automated scraping.",
+        "logged_in_only": "Only visitors with an account can see it.",
+        "hidden": "Kept for your records only."
+      },
+      "contact_verified": "Verified",
+      "contact_unverified": "Not verified.",
+      "verify_now": "Verify now",
+      "contact_changed": "Save to apply the change. A changed number or email must be verified again.",
+      "verify_title": "Verify your {channel}",
+      "photo_rules": "JPEG, PNG or WebP. Photos must be your own work and must not show other people's personal details.",
+      "photo": {
+        "profile": "Profile photo",
+        "cover": "Cover photo",
+        "portfolio": "Portfolio photo"
+      },
+      "no_photo": "No photo yet.",
+      "upload_photo": "Upload photo",
+      "replace_photo": "Replace photo",
+      "uploading": "Uploading…",
+      "delete_photo_confirm": "Delete this photo?",
+      "portfolio": "Portfolio ({n} of {max})",
+      "no_portfolio": "No portfolio photos yet.",
+      "caption": "Caption",
+      "add_photo": "Add a photo",
+      "save_order": "Save order and captions",
+      "media_pending": "Waiting for review",
+      "media_rejected": "Not approved",
+      "badges_meaning": "What the badges mean",
+      "contact_badges": "Contact badges",
+      "contact_badges_hint": "Phone and email badges are added automatically when you verify them with a code.",
+      "requests": "Your requests",
+      "badge": "Badge",
+      "dates": "Dates",
+      "no_requests": "No requests yet.",
+      "request_badge": "Request a badge",
+      "documents_private": "Upload clear copies. Only our review team can open them, and rejected documents are deleted after 30 days.",
+      "badge_type": {
+        "identity_checked": "Identity checked",
+        "business_registered": "Business registered",
+        "licence_checked": "Licence checked"
+      },
+      "document_type": "Document",
+      "doc": {
+        "national_id": "National ID",
+        "passport": "Passport",
+        "alien_id": "Alien ID",
+        "business_registration": "Business registration certificate",
+        "kra_pin": "KRA PIN certificate",
+        "licence": "Professional licence"
+      },
+      "licence_service": "Service the licence covers",
+      "files": "Files",
+      "files_hint": "Up to 3 files: PDF, JPEG, PNG or WebP.",
+      "send_for_review": "Send for review",
+      "request_sent": "Sent. We will let you know once it has been reviewed.",
+      "claim_title": "Claim your listing",
+      "claim_lead": "Our team prepared a listing for \"{name}\". Claim it to manage it yourself.",
+      "claim_destination": "You must be signed in with {destination}. This invitation expires on {date}.",
+      "claim_button": "Claim listing"
+    }
+  },
+  "provider": {
+    "claim": {
+      "subject": "Claim your listing on {site}",
+      "body": "Hello! {site} has prepared a listing for \"{name}\". To take ownership, sign in with this phone number or email and open: {link} (valid {days} days). If you did not expect this, ignore this message."
+    },
+    "notice": {
+      "subject": "Update on your {site} listing",
+      "listing_approved": "Good news: \"{name}\" is now live on {site}. Manage it at {link}",
+      "listing_rejected": "\"{name}\" was not approved yet. Reason: {reason}. Update it and submit again at {link}",
+      "listing_suspended": "\"{name}\" has been suspended on {site}. Reason: {reason}. Details: {link}",
+      "listing_restored": "\"{name}\" has been restored and is visible again on {site}. {link}",
+      "verification_approved": "Your \"{detail}\" verification for \"{name}\" was approved. {link}",
+      "verification_rejected": "Your \"{detail}\" verification for \"{name}\" was not approved. Reason: {reason}. {link}"
+    },
+    "type": {
+      "individual": "Individual professional",
+      "business": "Business"
+    },
+    "channel": {
+      "phone": "Phone",
+      "whatsapp": "WhatsApp",
+      "email": "Email"
+    },
+    "price": {
+      "fixed": "KES {amount}",
+      "from": "From KES {amount}",
+      "range": "KES {from} – {to}",
+      "on_quote": "Price on quote"
+    },
+    "public": {
+      "unavailable": "This professional is not taking new enquiries on this site right now.",
+      "gone_title": "This listing has been removed",
+      "gone_body": "The professional you are looking for is no longer listed.",
+      "years": "{n} years' experience",
+      "badges_label": "Verification badges",
+      "badges_link": "What these badges mean",
+      "contact_title": "Contact",
+      "reveal_phone": "Show phone number",
+      "reveal_whatsapp": "Show WhatsApp",
+      "reveal_email": "Show email",
+      "login_to_see": "Sign in to see",
+      "reveal_limited": "You have viewed many contacts in a short time. Please try again in a few minutes.",
+      "no_contacts": "This professional has not shared contact details yet.",
+      "safety_title": "Stay safe",
+      "safety_body": "Agree on the price and scope before work starts. Avoid paying the full amount upfront, and never share OTP codes or PINs with anyone.",
+      "about": "About",
+      "services": "Services and prices",
+      "areas": "Where they work",
+      "based_in": "Based in {area}",
+      "radius": "travels up to {km} km",
+      "portfolio": "Recent work",
+      "disclaimer": "Listings are provided by the professional. Badges show only what was checked; they are not a guarantee of work quality.",
+      "whatsapp_message": "Hello {name}, I found you on {site} and would like to ask about your services."
+    },
+    "badges": {
+      "title": "What our badges mean",
+      "intro": "Badges show what our team or our systems have checked about a professional. Each badge has a clear meaning:",
+      "limits": "A badge is not an endorsement or a guarantee of quality. Always agree on the work and price before you start, and report anything suspicious."
     }
   }
 }

@@ -40,17 +40,22 @@ const (
 	KindVersion  Kind = "version"  // policy version label
 	KindSocial   Kind = "social"   // [{label, url}]
 	KindChannels Kind = "channels" // non-empty subset of sms, email
+	KindChoice   Kind = "choice"   // one of Options
+	KindInt      Kind = "int"      // integer within Min..Max
 )
 
 // Definition describes one administrable setting.
 type Definition struct {
-	Key        string `json:"key"`
-	Kind       Kind   `json:"kind"`
-	Group      string `json:"group"`
-	Required   bool   `json:"required"`
-	MaxLen     int    `json:"max_length,omitempty"`
-	Public     bool   `json:"public"`
-	Permission string `json:"-"`
+	Key        string   `json:"key"`
+	Kind       Kind     `json:"kind"`
+	Group      string   `json:"group"`
+	Required   bool     `json:"required"`
+	MaxLen     int      `json:"max_length,omitempty"`
+	Public     bool     `json:"public"`
+	Options    []string `json:"options,omitempty"`
+	Min        int      `json:"min,omitempty"`
+	Max        int      `json:"max,omitempty"`
+	Permission string   `json:"-"`
 }
 
 // Definitions is the code-defined schema of editable settings (§4.1). Keys not listed here
@@ -79,6 +84,14 @@ var Definitions = []Definition{
 	{Key: KeyTermsVersion, Kind: KindVersion, Group: "legal", Public: true},
 	{Key: KeyPrivacyVersion, Kind: KindVersion, Group: "legal", Public: true},
 	{Key: KeyOTPChannels, Kind: KindChannels, Group: "security", Required: true, Permission: "notification_channels.configure"},
+	{Key: KeyProviderTermsVersion, Kind: KindVersion, Group: "legal", Public: true},
+	{Key: KeyListingEditModeration, Kind: KindChoice, Group: "marketplace", Required: true, Options: []string{"post", "pre"}},
+	{Key: KeyPortfolioModeration, Kind: KindChoice, Group: "marketplace", Required: true, Options: []string{"post", "pre"}},
+	{Key: KeyDefaultContactVisibility, Kind: KindChoice, Group: "marketplace", Required: true,
+		Options: []string{"public", "reveal_on_click", "logged_in_only", "hidden"}},
+	// Security floors are code-defined (§8.2): quotas and sizes are bounded here.
+	{Key: KeyPortfolioMaxItems, Kind: KindInt, Group: "marketplace", Required: true, Min: 1, Max: 100},
+	{Key: KeyUploadMaxMB, Kind: KindInt, Group: "marketplace", Required: true, Min: 1, Max: 20},
 }
 
 func definition(key string) (Definition, bool) {
@@ -125,6 +138,16 @@ func validateValue(d Definition, raw json.RawMessage, hasLocale func(string) boo
 			links = []SocialLink{}
 		}
 		b, _ := json.Marshal(links)
+		return b, ""
+	case KindInt:
+		var n int
+		if json.Unmarshal(raw, &n) != nil {
+			return nil, "invalid"
+		}
+		if n < d.Min || n > d.Max {
+			return nil, "out_of_range"
+		}
+		b, _ := json.Marshal(n)
 		return b, ""
 	case KindChannels:
 		var chans []string
@@ -209,6 +232,10 @@ func validateValue(d Definition, raw json.RawMessage, hasLocale func(string) boo
 		}
 	case KindVersion:
 		if !versionRe.MatchString(s) {
+			return nil, "invalid"
+		}
+	case KindChoice:
+		if !slices.Contains(d.Options, s) {
 			return nil, "invalid"
 		}
 	}

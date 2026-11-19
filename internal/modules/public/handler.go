@@ -34,6 +34,9 @@ type Meta struct {
 	Description string
 	Canonical   string
 	Robots      string // "index,follow" or "noindex,follow"
+	// JSONLD is structured data marshalled into an application/ld+json block (a data
+	// block, not script, so the CSP needs no exception).
+	JSONLD any
 }
 
 // NavLink is a rendered navigation link from a database-managed menu (§7.2).
@@ -208,7 +211,7 @@ func (h *Handler) NotFound(w http.ResponseWriter, r *http.Request) {
 // maintenanceExempt are paths that keep working during maintenance so staff can sign in,
 // administer the site and turn maintenance off again.
 var maintenanceExempt = []string{"/auth", "/account", "/provider", "/admin", "/api/", "/_app/", "/static/",
-	"/healthz", "/readyz", "/theme.css", "/robots.txt", "/preview/"}
+	"/healthz", "/readyz", "/theme.css", "/robots.txt", "/preview/", "/media/"}
 
 // Maintenance serves a 503 page for public pages while maintenance mode is on (§9.4).
 func (h *Handler) Maintenance(next http.Handler) http.Handler {

@@ -27,7 +27,7 @@ import (
 var ReservedSlugs = []string{
 	"services", "categories", "professionals", "locations", "search", "auth", "account", "provider", "admin",
 	"api", "static", "_app", "preview", "healthz", "readyz", "robots-txt", "sitemap", "sitemaps", "theme-css",
-	"favicon-ico", "login", "register", "logout",
+	"favicon-ico", "login", "register", "logout", "badges", "media",
 }
 
 // Limits.

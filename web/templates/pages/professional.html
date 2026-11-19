@@ -1,0 +1,66 @@
+{{define "content"}}{{with .Data}}{{if not .Available}}<section class="hero">
+  <div class="container">
+    <h1>{{.Name}}</h1>
+    <p class="lead">{{t "provider.public.unavailable"}}</p>
+    <a class="btn btn-primary" href="/">{{t "public.not_found.home_link"}}</a>
+  </div>
+</section>{{else}}<article class="profile">
+  {{if .Cover}}<div class="profile-cover"><img src="{{.Cover}}" alt="" loading="eager"></div>{{end}}
+  <div class="container profile-grid">
+    <header class="profile-head">
+      {{if .Photo}}<img class="profile-photo" src="{{.Photo}}" srcset="{{.PhotoSrcSet}}" sizes="120px" alt="{{.Name}}" width="120" height="120">{{end}}
+      <div>
+        <h1>{{.Name}}</h1>
+        <p class="profile-meta">
+          {{if eq .Type "business"}}{{t "provider.type.business"}}{{else}}{{t "provider.type.individual"}}{{end}}
+          {{with .Area}} · {{.}}{{end}}
+          {{with .Years}} · {{t "provider.public.years" "n" .}}{{end}}
+        </p>
+        {{if .Badges}}<ul class="badges" aria-label="{{t "provider.public.badges_label"}}">
+          {{range .Badges}}<li class="badge" title="{{.Description}}">✓ {{.Label}}{{with .ServiceName}} ({{.}}){{end}}</li>{{end}}
+        </ul>
+        <p class="small"><a href="/badges">{{t "provider.public.badges_link"}}</a></p>{{end}}
+      </div>
+    </header>
+
+    <aside class="profile-contact" aria-labelledby="contact-h">
+      <h2 id="contact-h">{{t "provider.public.contact_title"}}</h2>
+      {{if .RevealLimited}}<p class="notice">{{t "provider.public.reveal_limited"}}</p>{{end}}
+      {{if .Contacts}}<ul class="contact-list">
+        {{range .Contacts}}<li>
+          <span class="contact-label">{{t (printf "provider.channel.%s" .Channel)}}</span>
+          {{if .Revealed}}<a class="btn btn-primary" href="{{.Href}}"{{if eq .Channel "whatsapp"}} rel="noopener nofollow" target="_blank"{{end}}>{{.Value}}</a>
+          {{else if .Login}}<a class="btn btn-ghost" href="{{.Login}}" rel="nofollow">{{t "provider.public.login_to_see"}}</a>
+          {{else}}<a class="btn btn-ghost" href="{{.Reveal}}" rel="nofollow">{{t (printf "provider.public.reveal_%s" .Channel)}}</a>{{end}}
+        </li>{{end}}
+      </ul>{{else}}<p>{{t "provider.public.no_contacts"}}</p>{{end}}
+      <div class="safety">
+        <h3>{{t "provider.public.safety_title"}}</h3>
+        <p>{{t "provider.public.safety_body"}}</p>
+      </div>
+    </aside>
+
+    <div class="profile-main">
+      {{with .Description}}<section><h2>{{t "provider.public.about"}}</h2><p class="pre">{{.}}</p></section>{{end}}
+      {{if .Services}}<section><h2>{{t "provider.public.services"}}</h2>
+        <ul class="service-list">{{range .Services}}<li>
+          <div><strong>{{if .Title}}{{.Title}}{{else}}{{.Name}}{{end}}</strong>
+            <span class="small">{{.Category}}{{if .Title}} · {{.Name}}{{end}}</span></div>
+          <span class="price">{{.Price}}</span>
+          {{with .Description}}<p class="small">{{.}}</p>{{end}}
+        </li>{{end}}</ul>
+      </section>{{end}}
+      {{if or .Area .Coverage}}<section><h2>{{t "provider.public.areas"}}</h2>
+        {{with .Area}}<p>{{t "provider.public.based_in" "area" .}}{{with $.Data.Radius}} · {{t "provider.public.radius" "km" .}}{{end}}</p>{{end}}
+        {{if .Coverage}}<ul class="chips">{{range .Coverage}}<li>{{.}}</li>{{end}}</ul>{{end}}
+      </section>{{end}}
+      {{if .Portfolio}}<section><h2>{{t "provider.public.portfolio"}}</h2>
+        <ul class="gallery">{{range .Portfolio}}<li><figure>
+          <img src="{{.Src}}" srcset="{{.SrcSet}}" sizes="(min-width: 860px) 33vw, 50vw" alt="{{.Caption}}" loading="lazy"{{if .Width}} width="{{.Width}}" height="{{.Height}}"{{end}}>
+          {{with .Caption}}<figcaption>{{.}}</figcaption>{{end}}
+        </figure></li>{{end}}</ul>
+      </section>{{end}}
+      <p class="small muted">{{t "provider.public.disclaimer"}}</p>
+    </div>
+  </div>
+</article>{{end}}{{end}}{{end}}

@@ -613,3 +613,55 @@ func (s *Service) Logout(ctx context.Context) error {
 		time.Now().UTC(), p.SessionID)
 	return err
 }
+
+// ---- Contact verification (provider phone/email badges) -------------------------------
+
+// StartContactVerification sends a code to a contact value the signed-in user wants to
+// prove they control. channel is "sms" or "email"; value must already be normalized.
+func (s *Service) StartContactVerification(ctx context.Context, channel, value string) (*IssuedChallenge, error) {
+	p := reqctx.PrincipalFrom(ctx)
+	if p == nil {
+		return nil, response.ErrUnauthenticated
+	}
+	dest, ok := parseDestination(value)
+	if !ok || dest.channel != channel {
+		return nil, response.Validation(map[string]string{"value": "invalid"})
+	}
+	if !s.channelEnabled(ctx, dest.channel) {
+		return nil, response.New(http.StatusUnprocessableEntity, response.CodeChannelDisabled, "Verification by this channel is not available.")
+	}
+	uid := p.UserID
+	return s.issueChallenge(ctx, challengeSpec{purpose: PurposeContact, dest: dest, userID: &uid})
+}
+
+// ConfirmContactVerification consumes a contact challenge issued to the signed-in user and
+// returns the verified channel and value.
+func (s *Service) ConfirmContactVerification(ctx context.Context, challengeID, code string) (string, string, error) {
+	p := reqctx.PrincipalFrom(ctx)
+	if p == nil {
+		return "", "", response.ErrUnauthenticated
+	}
+	c, err := s.consumeChallenge(ctx, challengeID, strings.TrimSpace(code), PurposeContact)
+	if err != nil {
+		return "", "", err
+	}
+	if c.userID == nil || *c.userID != p.UserID {
+		return "", "", errInvalidCode
+	}
+	return c.dest.channel, c.dest.value, nil
+}
+
+// VerifiedDestinations returns the user's verified phone and email ("" when absent).
+func (s *Service) VerifiedDestinations(ctx context.Context, userID uint64) (phone, email string, err error) {
+	u, err := s.users.ByID(ctx, s.db, userID)
+	if err != nil {
+		return "", "", err
+	}
+	if u.PhoneE164 != nil && u.PhoneVerifiedAt != nil {
+		phone = *u.PhoneE164
+	}
+	if u.Email != nil && u.EmailVerifiedAt != nil {
+		email = *u.Email
+	}
+	return phone, email, nil
+}

@@ -58,7 +58,7 @@ var SystemRoles = []RoleDef{
 	{
 		Key: RoleModerator, Name: "Moderator", Description: "Provider, review, report and media moderation",
 		Permissions: []string{
-			"dashboard.view", "providers.view", "providers.view_any",
+			"dashboard.view", "providers.view", "providers.view_any", "providers.publish_any", "providers.suspend", "providers.restore",
 			"reviews.view", "reviews.view_any", "reviews.moderate", "reviews.hide", "reviews.restore",
 			"reports.view", "reports.assign", "reports.resolve", "reports.dismiss",
 			"moderation.actions.view", "moderation.actions.create", "media.moderate",

@@ -86,7 +86,10 @@ func newEnv(t *testing.T) *env {
 	for _, tbl := range []string{"otp_challenges", "user_sessions", "user_devices", "user_credentials", "user_consents",
 		"user_roles", "audit_logs", "background_jobs", "users",
 		"site_settings", "feature_flags", "managed_pages", "navigation_items", "slug_redirects",
-		"service_synonyms", "services", "categories", "location_aliases", "location_geo", "areas", "towns"} {
+		"service_synonyms", "services", "categories", "location_aliases", "location_geo", "areas", "towns",
+		"providers", "provider_status_history", "provider_contacts", "provider_services", "provider_service_areas",
+		"provider_geo", "provider_portfolio", "provider_verifications", "verification_documents", "provider_claims",
+		"moderation_actions", "analytics_events", "media_files"} {
 		stmts = append(stmts, "TRUNCATE TABLE "+tbl)
 	}
 	stmts = append(stmts, "DELETE FROM location_slugs WHERE location_type <> 'county'",
@@ -102,12 +105,14 @@ func newEnv(t *testing.T) *env {
 	if err := app.Seed(ctx, testDB, log); err != nil { // restore default settings, flags and draft pages
 		t.Fatal(err)
 	}
-	a, err := app.Build(testConfig(os.Getenv("TEST_DATABASE_DSN")), log, testDB)
+	cfg := testConfig(os.Getenv("TEST_DATABASE_DSN"))
+	cfg.MediaDir = t.TempDir()
+	a, err := app.Build(cfg, log, testDB)
 	if err != nil {
 		t.Fatal(err)
 	}
 	srv := httptest.NewServer(a.Handler)
-	t.Cleanup(func() { a.Auth.WaitDeliveries(); srv.Close() })
+	t.Cleanup(func() { a.Auth.WaitDeliveries(); a.Providers.WaitDeliveries(); srv.Close() })
 	return &env{t: t, app: a, srv: srv}
 }
 
@@ -304,3 +309,5 @@ func (c *client) page(path string) (int, http.Header, string) {
 }
 
 func jsonUnmarshal(s string, v any) error { return json.Unmarshal([]byte(s), v) }
+
+func jsonEncode(w io.Writer, v any) error { return json.NewEncoder(w).Encode(v) }

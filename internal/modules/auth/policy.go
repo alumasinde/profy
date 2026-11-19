@@ -14,6 +14,7 @@ const (
 	PurposeLogin           = "login"
 	PurposeRecovery        = "recovery"
 	PurposeSensitiveChange = "sensitive_change"
+	PurposeContact         = "contact_verification" // proves control of a provider contact channel
 )
 
 // Channels.

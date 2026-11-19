@@ -70,3 +70,13 @@ details.seo summary{cursor:pointer;font-weight:600;margin-bottom:.75rem}
 .full{width:100%}
 .row input:not([type="checkbox"]):not([type="color"]){min-height:44px;padding:.5rem .75rem;border:1px solid var(--color-border);border-radius:8px;font:inherit;background:#fff;flex:1;min-width:160px}
 .row input[type="color"]{width:56px;min-height:44px;padding:2px;border:1px solid var(--color-border);border-radius:8px;background:#fff;flex:none}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.lead{color:var(--color-muted,#475569);max-width:65ch}
+.status-pending_review,.status-pending,.status-pending_moderation,.status-paused{border-color:#fcd34d;background:#fef3c7}
+.status-suspended,.status-rejected,.status-expired{border-color:#fca5a5;background:#fef2f2}
+.status-verified{border-color:#86efac;background:#f0fdf4}
+.subnav{display:flex;flex-wrap:wrap;gap:.25rem 1rem;margin:0 0 1rem;border-bottom:1px solid var(--color-border);padding-bottom:.25rem;overflow-x:auto}
+.subnav a,.subnav button{padding:.5rem 0;min-height:44px;display:inline-flex;align-items:center;text-decoration:none;white-space:nowrap}
+.subnav [aria-current="page"]{font-weight:700;border-bottom:3px solid var(--color-primary)}
+fieldset.field{border:0;padding:0;margin:0 0 1rem}
+fieldset.field legend{font-weight:600;margin-bottom:.35rem}

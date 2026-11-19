@@ -10,6 +10,9 @@
 		group: string;
 		required: boolean;
 		max_length?: number;
+		options?: string[];
+		min?: number;
+		max?: number;
 		value: unknown;
 	}
 	interface Link {
@@ -133,6 +136,14 @@
 								<select id={'s-' + d.key} bind:value={values[d.key]} disabled={!editable}>
 									{#each i18n.locales as l (l)}<option value={l}>{l}</option>{/each}
 								</select>
+							{:else if d.kind === 'choice'}
+								<select id={'s-' + d.key} bind:value={values[d.key]} disabled={!editable}>
+									{#each d.options ?? [] as o (o)}<option value={o}>{t('app.admin.setting_option.' + d.key + '.' + o)}</option>{/each}
+								</select>
+							{:else if d.kind === 'int'}
+								<input id={'s-' + d.key} type="number" min={d.min} max={d.max} step="1" bind:value={values[d.key]} disabled={!editable}
+									aria-invalid={errors[d.key] ? 'true' : undefined} />
+								<p class="hint">{t('app.admin.range_hint', { min: d.min ?? 0, max: d.max ?? 0 })}</p>
 							{:else if d.key === 'site_description'}
 								<textarea id={'s-' + d.key} rows="3" maxlength={d.max_length} bind:value={values[d.key]} disabled={!editable}></textarea>
 							{:else}

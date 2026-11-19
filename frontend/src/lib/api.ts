@@ -37,7 +37,8 @@ function csrfToken(): string {
 
 export async function request<T>(method: string, path: string, body?: unknown): Promise<Envelope<T>> {
 	const headers: Record<string, string> = { Accept: 'application/json' };
-	if (body !== undefined) headers['Content-Type'] = 'application/json';
+	const form = body instanceof FormData;
+	if (body !== undefined && !form) headers['Content-Type'] = 'application/json';
 	if (method !== 'GET') headers['X-CSRF-Token'] = csrfToken();
 	let res: Response;
 	try {
@@ -45,7 +46,7 @@ export async function request<T>(method: string, path: string, body?: unknown): 
 			method,
 			headers,
 			credentials: 'same-origin',
-			body: body === undefined ? undefined : JSON.stringify(body)
+			body: body === undefined ? undefined : form ? (body as FormData) : JSON.stringify(body)
 		});
 	} catch {
 		throw new ApiError(0, { code: 'network', message: 'Network error' });
@@ -64,7 +65,9 @@ export const api = {
 	post: <T>(p: string, b?: unknown) => request<T>('POST', p, b ?? {}),
 	put: <T>(p: string, b?: unknown) => request<T>('PUT', p, b ?? {}),
 	patch: <T>(p: string, b?: unknown) => request<T>('PATCH', p, b ?? {}),
-	del: <T>(p: string) => request<T>('DELETE', p)
+	del: <T>(p: string) => request<T>('DELETE', p),
+	/** upload sends multipart form data (the browser sets the boundary). */
+	upload: <T>(p: string, f: FormData) => request<T>('POST', p, f)
 };
 
 /** safeNext accepts only same-origin relative paths for post-login redirects. */

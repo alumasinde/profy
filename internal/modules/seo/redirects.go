@@ -24,6 +24,7 @@ func PagePath(slug string) string     { return "/" + slug }
 func CategoryPath(slug string) string { return "/categories/" + slug }
 func ServicePath(slug string) string  { return "/services/" + slug }
 func LocationPath(slug string) string { return "/locations/" + slug }
+func ProviderPath(slug string) string { return "/professionals/" + slug }
 
 // validPath accepts a clean, lowercase, absolute site path.
 func validPath(p string) bool {

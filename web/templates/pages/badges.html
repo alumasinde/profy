@@ -1,0 +1,8 @@
+{{define "content"}}<article class="page container">
+  <h1>{{t "provider.badges.title"}}</h1>
+  <div class="prose">
+    <p>{{t "provider.badges.intro"}}</p>
+    <dl class="badge-defs">{{range .Data}}<dt><span class="badge">✓ {{.Label}}</span></dt><dd>{{.Description}}</dd>{{end}}</dl>
+    <p>{{t "provider.badges.limits"}}</p>
+  </div>
+</article>{{end}}

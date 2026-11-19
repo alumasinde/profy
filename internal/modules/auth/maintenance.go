@@ -42,24 +42,7 @@ func RegisterMaintenance(q *jobsqueue.Queue, db *sql.DB) {
 }
 
 // ScheduleMaintenance enqueues the retention job once per UTC day (deduplicated across
-// restarts and instances) until ctx is cancelled.
+// ScheduleMaintenance enqueues the daily auth prune job.
 func ScheduleMaintenance(ctx context.Context, db *sql.DB, log *slog.Logger) {
-	enqueue := func() {
-		day := time.Now().UTC().Format("2006-01-02")
-		if err := jobsqueue.Enqueue(ctx, db, JobPruneAuth, map[string]string{"day": day},
-			jobsqueue.Options{DedupeKey: JobPruneAuth + ":" + day, MaxAttempts: 3}); err != nil && ctx.Err() == nil {
-			log.Error("schedule maintenance", "error", err)
-		}
-	}
-	enqueue()
-	t := time.NewTicker(time.Hour)
-	defer t.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
-			enqueue()
-		}
-	}
+	jobsqueue.ScheduleDaily(ctx, db, log, JobPruneAuth)
 }

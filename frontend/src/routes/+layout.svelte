@@ -34,6 +34,10 @@
 		if (!ready || session.authenticated) return;
 		const path = page.url.pathname;
 		if (protectedPrefixes.some((p) => path === p || path.startsWith(p + '/'))) {
+			// A claim link's token lives in the fragment; keep it across sign-in without
+			// ever putting it in a URL the server sees.
+			const claim = path === '/provider/claim' ? location.hash.match(/token=([A-Za-z0-9_-]+)/) : null;
+			if (claim) sessionStorage.setItem('hl_claim', claim[1]);
 			goto('/auth/login?next=' + encodeURIComponent(path + page.url.search), { replaceState: true });
 		}
 	});
@@ -45,7 +49,8 @@
 	}
 
 	const adminPerms = ['users.view_any', 'roles.view', 'audit_logs.view', 'platform.settings.view', 'platform.feature_flags.view',
-		'pages.view', 'navigation.view', 'categories.view', 'services.view', 'locations.view', 'seo.manage_redirects'];
+		'pages.view', 'navigation.view', 'categories.view', 'services.view', 'locations.view', 'seo.manage_redirects',
+		'providers.view_any', 'media.moderate'];
 	const isAdmin = $derived(adminPerms.some((p) => can(p)));
 	const current = (href: string) => (page.url.pathname === href || page.url.pathname.startsWith(href + '/') ? 'page' : undefined);
 </script>
@@ -62,6 +67,7 @@
 				{#if session.authenticated}
 					<a href="/account" aria-current={page.url.pathname === '/account' ? 'page' : undefined}>{t('app.nav.account')}</a>
 					<a href="/account/security" aria-current={current('/account/security')}>{t('app.nav.security')}</a>
+					<a href="/provider" aria-current={current('/provider')}>{t('app.nav.provider')}</a>
 					{#if isAdmin}<a href="/admin" aria-current={current('/admin')}>{t('app.nav.admin')}</a>{/if}
 					<button type="button" onclick={logout}>{t('app.nav.logout')}</button>
 				{:else}

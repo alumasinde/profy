@@ -93,8 +93,9 @@ type Location struct {
 
 // Service implements location administration.
 type Service struct {
-	db    *sql.DB
-	authz *authz.Service
+	db         *sql.DB
+	authz      *authz.Service
+	mergeHooks []MergeHook
 }
 
 // New builds the service.
@@ -651,8 +652,8 @@ func (s *Service) SetCentroid(ctx context.Context, typ, publicID string, p *Poin
 // Merge folds a duplicate town or area into another of the same type (locations.merge):
 // children and aliases move to the target, the source name becomes an alias of the target,
 // the source is archived with merged_into set (never deleted), its slug stays reserved and
-// redirects to the target. Phase 4+ references (providers, service areas) must be re-pointed
-// here when they exist.
+// redirects to the target. Registered merge hooks re-point other modules' references
+// (provider base areas and service areas) in the same transaction.
 func (s *Service) Merge(ctx context.Context, typ, sourceID, targetID string) (*Location, error) {
 	k, ok := kinds[typ]
 	if !ok || typ == County {
@@ -698,6 +699,11 @@ func (s *Service) Merge(ctx context.Context, typ, sourceID, targetID string) (*L
 		}
 		if err := seo.AddRedirect(ctx, tx, seo.LocationPath(src.Slug), seo.LocationPath(dst.Slug), "auto"); err != nil {
 			return err
+		}
+		for _, hook := range s.mergeHooks {
+			if err := hook(ctx, tx, typ, src.internalID, dst.internalID); err != nil {
+				return err
+			}
 		}
 		return audit.Record(ctx, tx, audit.Entry{Action: "locations.merged", EntityType: typ, EntityID: src.ID,
 			OldValues: map[string]any{"name": src.Name, "slug": src.Slug},

@@ -4,6 +4,9 @@
 
 	// Shown only when the user holds the permission; the API enforces every action.
 	const sections = [
+		{ href: '/admin/providers', label: 'app.admin.providers', perm: 'providers.view_any' },
+		{ href: '/admin/verifications', label: 'app.admin.verifications', perm: 'providers.view_any' },
+		{ href: '/admin/media', label: 'app.admin.media', perm: 'media.moderate' },
 		{ href: '/admin/settings', label: 'app.admin.settings', perm: 'platform.settings.view' },
 		{ href: '/admin/feature-flags', label: 'app.admin.flags', perm: 'platform.feature_flags.view' },
 		{ href: '/admin/pages', label: 'app.admin.pages', perm: 'pages.view' },

@@ -21,7 +21,8 @@ The full specification is [`plan.md`](plan.md). This file is the concise working
 | `internal/jobsqueue` | MySQL outbox worker |
 | `internal/i18n` + `web/i18n/*.json` | String catalogues shared by Go and Svelte |
 | `internal/shared/{text,paging,lifecycle}` | Slugs and search-term normalization, keyset cursors, draft/published/archived permission rules |
-| `internal/modules/<name>` | One business module each (`auth`, `users`, `roles`, `settings`, `audit`, `notifications`, `public`, `pages`, `seo`, `categories`, `services`, `locations`, …) |
+| `internal/modules/<name>` | One business module each (`auth`, `users`, `roles`, `settings`, `audit`, `notifications`, `public`, `pages`, `seo`, `categories`, `services`, `locations`, `media`, `verification`, `providers`, `moderation`, `analytics`, …) |
+| `internal/storage` | File store interface (local disk now: `MEDIA_DIR/public`, `MEDIA_DIR/private`) |
 
 Modules talk through services, never by reading each other's tables. Business logic stays out of handlers.
 
@@ -33,6 +34,8 @@ Modules talk through services, never by reading each other's tables. Business lo
 - **Time:** UTC `DATETIME(3)` in the DB; format in `Africa/Nairobi` at the edge.
 - **Public URLs:** build them only with the helpers in `internal/modules/seo` and call `seo.AddRedirect` in the same transaction whenever a public slug changes.
 - **Locations:** points are written with `ST_SRID(POINT(lng, lat), 4326)` and read with `ST_Latitude/ST_Longitude`; county/town/area slugs are reserved through `location_slugs`.
+- **Uploads:** never trust names or client MIME types; go through `media.Upload` (sniff, re-encode, variants). Private documents use the private store and every view is audited.
+- **Provider visibility:** only `published` listings render publicly; contact values are personal data and never go into audit, analytics or job payloads.
 - **Phones:** store E.164 only (`+2547…`, `+2541…`); accept `07…`, `01…`, `254…`, `+254…`.
 - **API:** `{ "data", "meta" }` / `{ "error": { code, message, fields, request_id } }`, snake_case, stable error codes, bounded `limit`, cursor pagination for admin lists.
 - **No hardcoding:** branding, categories, services, locations, SEO copy, contacts and settings are data; every user-facing string is a catalogue key (add it to `web/i18n/en.json`; `sw.json` is optional per key).

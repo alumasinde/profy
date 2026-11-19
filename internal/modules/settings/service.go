@@ -25,6 +25,13 @@ const (
 	KeyPrivacyVersion  = "privacy_version"
 	KeyOTPChannels     = "otp_channels"
 	KeyMaintenance     = "maintenance_mode"
+
+	KeyProviderTermsVersion     = "provider_terms_version"
+	KeyListingEditModeration    = "listing_edit_moderation"
+	KeyPortfolioModeration      = "portfolio_moderation"
+	KeyDefaultContactVisibility = "default_contact_visibility"
+	KeyPortfolioMaxItems        = "portfolio_max_items"
+	KeyUploadMaxMB              = "upload_max_mb"
 )
 
 // defaults are safe bootstrap values used when the database has no row (§4.2).
@@ -42,6 +49,13 @@ var defaults = map[string]any{
 	KeyPrivacyVersion:  "",
 	KeyOTPChannels:     []any{"sms", "email"},
 	KeyMaintenance:     false,
+
+	KeyProviderTermsVersion:     "",
+	KeyListingEditModeration:    "post",
+	KeyPortfolioModeration:      "post",
+	KeyDefaultContactVisibility: "reveal_on_click",
+	KeyPortfolioMaxItems:        30,
+	KeyUploadMaxMB:              8,
 }
 
 type snapshot struct {
@@ -147,6 +161,20 @@ func (s *Service) Bool(ctx context.Context, key string) bool {
 		}
 	}
 	v, _ := defaults[key].(bool)
+	return v
+}
+
+// Int returns an integer setting.
+func (s *Service) Int(ctx context.Context, key string) int {
+	if snap, err := s.load(ctx); err == nil {
+		if raw, ok := snap.values[key]; ok {
+			var v int
+			if json.Unmarshal(raw, &v) == nil {
+				return v
+			}
+		}
+	}
+	v, _ := defaults[key].(int)
 	return v
 }
 

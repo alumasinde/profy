@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: HudumaLink API
-  version: 0.3.0
+  version: 0.4.0
   description: |
     REST API shared by the Svelte web app and the future Kotlin app (plan §15).
     Phases 1–3: platform, authentication, roles, audit, settings, pages, navigation, catalogue, locations, redirects.
@@ -35,6 +35,72 @@ components:
       required: true
       schema: { type: string, format: uuid }
   schemas:
+    LocationRef:
+      type: object
+      properties:
+        type: { type: string, enum: [county, town, area] }
+        id: { type: string, format: uuid }
+        name: { type: string }
+        slug: { type: string }
+        label: { type: string, description: "e.g. Parklands, Westlands, Nairobi" }
+        status: { type: string }
+        selectable: { type: boolean }
+    Media:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        purpose: { type: string, enum: [profile, cover, portfolio, verification_document] }
+        status: { type: string, enum: [active, pending_moderation, rejected, deleted] }
+        content_type: { type: string }
+        bytes: { type: integer }
+        width: { type: integer }
+        height: { type: integer }
+        url: { type: string, description: Largest public JPEG variant }
+        urls: { type: object, additionalProperties: { type: string }, description: "width → URL (160/480/960/1600, never upscaled)" }
+        moderation_note: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+    OfferInput:
+      type: object
+      properties:
+        service_id: { type: string, format: uuid, description: Create only; the service must be published }
+        custom_title: { type: string, maxLength: 120 }
+        description: { type: string, maxLength: 500 }
+        pricing_type: { type: string, enum: [fixed, from, range, on_quote] }
+        price_from: { type: integer, nullable: true, description: Whole KES; required unless on_quote }
+        price_to: { type: integer, nullable: true, description: Whole KES; range only, ≥ price_from }
+        status: { type: string, enum: [active, hidden] }
+    Listing:
+      type: object
+      description: A provider listing as seen by its owner or staff (staff views add owner, claim and history).
+      properties:
+        id: { type: string, format: uuid }
+        provider_type: { type: string, enum: [individual, business] }
+        display_name: { type: string }
+        slug: { type: string }
+        path: { type: string, example: /professionals/jane-wanjiru-plumbing }
+        description: { type: string }
+        years_experience: { type: integer, nullable: true }
+        status: { type: string, enum: [draft, pending_review, published, paused, suspended, archived] }
+        status_reason: { type: string, nullable: true }
+        base_area: { allOf: [{ $ref: "#/components/schemas/LocationRef" }], nullable: true }
+        service_radius_km: { type: integer, nullable: true }
+        pin: { type: object, nullable: true, description: Private; never shown publicly, properties: { latitude: { type: number }, longitude: { type: number }, accuracy_m: { type: integer, nullable: true }, source: { type: string } } }
+        profile_photo: { allOf: [{ $ref: "#/components/schemas/Media" }], nullable: true }
+        cover_photo: { allOf: [{ $ref: "#/components/schemas/Media" }], nullable: true }
+        services: { type: array, items: { type: object } }
+        coverage: { type: array, items: { $ref: "#/components/schemas/LocationRef" } }
+        contacts: { type: array, items: { type: object, properties: { channel: { type: string, enum: [phone, whatsapp, email] }, value: { type: string }, visibility: { type: string, enum: [public, reveal_on_click, logged_in_only, hidden] }, verified_at: { type: string, format: date-time, nullable: true } } } }
+        portfolio: { type: array, items: { type: object, properties: { id: { type: string }, caption: { type: string, nullable: true }, position: { type: integer }, media: { $ref: "#/components/schemas/Media" } } } }
+        badges: { type: array, items: { type: object, properties: { type: { type: string }, label: { type: string }, description: { type: string }, service_name: { type: string }, verified_at: { type: string, nullable: true }, expires_at: { type: string, nullable: true } } } }
+        completeness: { type: object, properties: { score: { type: integer }, can_submit: { type: boolean }, items: { type: array, items: { type: object, properties: { key: { type: string }, done: { type: boolean }, required: { type: boolean }, weight: { type: integer } } } } } }
+        terms_accepted: { type: boolean }
+        current_terms_version: { type: string }
+        assisted: { type: boolean }
+        submitted_at: { type: string, format: date-time, nullable: true }
+        published_at: { type: string, format: date-time, nullable: true }
+    ListingResponse:
+      type: object
+      properties: { data: { $ref: "#/components/schemas/Listing" } }
     Error:
       type: object
       required: [error]
@@ -48,7 +114,8 @@ components:
               enum: [bad_request, validation_failed, unauthenticated, forbidden, not_found, conflict, rate_limited,
                 internal_error, csrf_failed, invalid_or_expired_code, invalid_credentials, reauthentication_required,
                 weak_pin, channel_unavailable, pin_locked, unsupported_media_type, parent_not_published, has_dependents,
-                location_merged]
+                location_merged, no_provider, listing_incomplete, invalid_transition, listing_archived,
+                claim_destination_mismatch, provider_exists, claim_invalid, already_claimed]
             message: { type: string }
             fields:
               type: object
@@ -920,6 +987,320 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
+  /provider/profile:
+    get:
+      summary: The caller's listing (404 no_provider if none)
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ListingResponse" } } } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+    post:
+      summary: Start a listing (one per user); grants the provider role and pre-fills verified contacts
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [provider_type, display_name], properties: { provider_type: { type: string, enum: [individual, business] }, display_name: { type: string, maxLength: 120 }, accept_terms: { type: boolean } } } } } }
+      responses:
+        "201": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ListingResponse" } } } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+    patch:
+      summary: Edit profile fields (providers.update_own). Name/photo edits on a live listing re-enter review when listing_edit_moderation = pre
+      requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { provider_type: { type: string }, display_name: { type: string }, description: { type: string, maxLength: 3000 }, years_experience: { type: integer }, clear_years_experience: { type: boolean }, accept_terms: { type: boolean } } } } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ListingResponse" } } } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /provider/profile/{action}:
+    post:
+      summary: "Owner lifecycle action: submit (draft→pending_review, needs completeness), pause, resume, archive"
+      parameters: [{ name: action, in: path, required: true, schema: { type: string, enum: [submit, pause, resume, archive] } }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ListingResponse" } } } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /provider/dashboard:
+    get:
+      summary: Listing plus 30-day profile views and contact reveals
+      responses:
+        "200": { description: OK }
+  /provider/services:
+    post:
+      summary: Offer a published service with pricing (max 30)
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/OfferInput" } } } }
+      responses:
+        "201": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ListingResponse" } } } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /provider/services/{offer}:
+    patch:
+      summary: Edit an offering
+      parameters: [{ name: offer, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/OfferInput" } } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ListingResponse" } } } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+    delete:
+      summary: Remove an offering
+      parameters: [{ name: offer, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ListingResponse" } } } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /provider/service-areas:
+    put:
+      summary: Replace base area, radius (≤50 km), coverage (≤50 selectable counties/towns/areas) and the private pin (Kenya bounds)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { base_area_id: { type: string, nullable: true }, service_radius_km: { type: integer, nullable: true }, coverage: { type: array, items: { type: object, properties: { type: { type: string, enum: [county, town, area] }, id: { type: string } } } }, pin: { type: object, nullable: true, properties: { latitude: { type: number }, longitude: { type: number }, accuracy_m: { type: integer } } } } } } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ListingResponse" } } } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /provider/contacts:
+    put:
+      summary: Replace contact channels; unchanged verified values stay verified, values matching the owner's verified login are verified automatically, others are not
+      requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { contacts: { type: array, items: { type: object, required: [channel, value, visibility], properties: { channel: { type: string, enum: [phone, whatsapp, email] }, value: { type: string }, visibility: { type: string, enum: [public, reveal_on_click, logged_in_only, hidden] } } } } } } } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ListingResponse" } } } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /provider/contacts/verify:
+    post:
+      summary: Send a contact_verification OTP to the phone or email contact
+      requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { channel: { type: string, enum: [phone, email] } } } } } }
+      responses:
+        "200": { description: Challenge issued }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /provider/contacts/verify/confirm:
+    post:
+      summary: Confirm the code; marks the contact verified and grants phone_verified / email_verified
+      requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { challenge_id: { type: string }, code: { type: string } } } } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ListingResponse" } } } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /provider/media:
+    post:
+      summary: "Upload (multipart: purpose=profile|cover|portfolio, caption, file). Type is sniffed; images are re-encoded to JPEG variants with metadata stripped"
+      requestBody: { required: true, content: { multipart/form-data: { schema: { type: object, properties: { purpose: { type: string }, caption: { type: string }, file: { type: string, format: binary } } } } } }
+      responses:
+        "201": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ListingResponse" } } } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /provider/media/{media}:
+    delete:
+      summary: Delete one of the listing's photos
+      parameters: [{ name: media, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ListingResponse" } } } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /provider/portfolio:
+    patch:
+      summary: Reorder (array order) and caption portfolio items
+      requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { type: object, properties: { id: { type: string }, caption: { type: string } } } } } } } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ListingResponse" } } } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /provider/claim/preview:
+    post:
+      summary: Describe an assisted-listing claim token (no sign-in; rate-limited)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { token: { type: string } } } } } }
+      responses:
+        "200": { description: "display_name, channel, masked destination, expires_at" }
+        "400": { $ref: "#/components/responses/Error" }
+  /provider/claim:
+    post:
+      summary: Claim an assisted listing; the caller's verified phone/email must equal the invite destination
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [token, accept_terms], properties: { token: { type: string }, accept_terms: { type: boolean } } } } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ListingResponse" } } } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /provider/verifications:
+    get:
+      summary: The caller's verification requests, requestable badges and document types
+      responses:
+        "200": { description: OK }
+    post:
+      summary: "Request a badge (multipart: badge_type, document_type, service_id for licences, files ×1–3; PDF/JPEG/PNG/WebP, active PDFs rejected)"
+      responses:
+        "201": { description: OK }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /verification/badge-types:
+    get:
+      summary: Badge definitions (public)
+      responses:
+        "200": { description: OK }
+  /providers/{slug}/contact-reveal:
+    post:
+      summary: Reveal one published contact (rate-limited; logged_in_only needs a session; records an analytics event)
+      parameters: [{ name: slug, in: path, required: true, schema: { type: string } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { channel: { type: string } } } } } }
+      responses:
+        "200": { description: "channel, value, href" }
+        "401": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /services:
+    get:
+      summary: Published services for pickers (q matches name, category and synonyms)
+      parameters: [{ name: q, in: query, schema: { type: string } }]
+      responses:
+        "200": { description: OK }
+  /locations/{level}:
+    get:
+      summary: "Selectable locations for pickers: counties, towns?county=, areas?town=, search?q= (alias-aware)"
+      parameters: [{ name: level, in: path, required: true, schema: { type: string, enum: [counties, towns, areas, search] } }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: "#/components/schemas/LocationRef" } } } } } } }
+  /admin/providers:
+    get:
+      summary: Staff list / review queue (providers.view_any). status=pending_review is oldest-first
+      parameters:
+        - { name: status, in: query, schema: { type: string } }
+        - { name: q, in: query, schema: { type: string } }
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200": { description: "items, next_cursor, counts by status" }
+        "403": { $ref: "#/components/responses/Error" }
+    post:
+      summary: Create an assisted (unowned) draft and optionally send a claim invite (providers.create + providers.update_any)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { provider_type: { type: string }, display_name: { type: string }, claim_channel: { type: string, enum: [sms, email] }, claim_destination: { type: string } } } } } }
+      responses:
+        "201": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ListingResponse" } } } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /admin/providers/{id}:
+    get:
+      summary: Staff view with owner, claim and status history (providers.view_any)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ListingResponse" } } } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+    patch:
+      summary: Edit profile incl. slug and meta (providers.update_any); slug changes on ever-published listings redirect
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ListingResponse" } } } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /admin/providers/{id}/status:
+    post:
+      summary: "Moderation: approve, reject*, suspend*, restore, pause, resume, submit, archive (*reason required). Each action has its own permission"
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [action], properties: { action: { type: string }, reason: { type: string, maxLength: 500 } } } } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ListingResponse" } } } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /admin/providers/{id}/invite:
+    post:
+      summary: (Re)send a claim invite for an unowned listing; earlier invites expire
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ListingResponse" } } } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /admin/providers/{id}/{section}:
+    description: "Staff equivalents of the owner endpoints (providers.update_any): services, services/{offer}, service-areas, contacts, media, media/{media}, portfolio"
+  /admin/verifications:
+    get:
+      summary: Verification queue (providers.view_any); ?status=pending|verified|rejected|expired
+      responses:
+        "200": { description: OK }
+  /admin/verifications/{id}:
+    get:
+      summary: Request with documents (download URLs are audited)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: OK }
+    patch:
+      summary: Approve (providers.verify; licences need expires_at) or reject with reason (providers.reject_verification)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { decision: { type: string, enum: [approve, reject] }, reason: { type: string }, expires_at: { type: string, format: date-time } } } } } }
+      responses:
+        "200": { description: OK }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /admin/media:
+    get:
+      summary: Public-media moderation queue (media.moderate); ?status=pending_moderation|active|rejected
+      responses:
+        "200": { description: OK }
+  /admin/media/{id}:
+    patch:
+      summary: Approve or reject (note required) a public image (media.moderate)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { decision: { type: string, enum: [approve, reject] }, note: { type: string } } } } } }
+      responses:
+        "200": { description: OK }
+  /admin/media/{id}/download:
+    get:
+      summary: Stream a private verification document (media.view_private); every view is audited
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: File }
   /admin/redirects:
     get:
       summary: Slug redirects (seo.manage_redirects)
